@@ -28,7 +28,7 @@ jobs:
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
-        files: ./workspace/FreeRTOS/FreeRTOS/Test/CMock/build/cmock_test.info
+        files: ./workspace/FreeRTOS/Test/CMock/build/cmock_test.info
         # directory: ./workspace/FreeRTOS/staging/FreeRTOS/Test/CMock/build
         flags: unittests
         env_vars: OS,PYTHON
