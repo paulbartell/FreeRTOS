@@ -1,2 +1,4 @@
 fixes:
   - "/home/runner/work/FreeRTOS/FreeRTOS/workspace/::"
+codecov:
+  disable_default_path_fixes: false
