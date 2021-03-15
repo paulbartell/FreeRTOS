@@ -8,7 +8,7 @@ jobs:
     - name: Clone This Repo
       uses: actions/checkout@v2
       with:
-        path: ./workspace
+        path: .
         submodules: 'recursive'
         fetch-depth: 1
 
@@ -23,16 +23,15 @@ jobs:
 
     - name: Run Unit Tests
       run: |
-          make -C workspace/FreeRTOS/Test/CMock lcov
+          make -C FreeRTOS/Test/CMock lcov
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
-        files: ./workspace/FreeRTOS/Test/CMock/build/cmock_test.info
-        # directory: ./workspace/FreeRTOS/staging/FreeRTOS/Test/CMock/build
+        files: FreeRTOS/Test/CMock/build/cmock_test.info
         flags: unittests
         env_vars: OS,PYTHON
         name: codecov-umbrella
         fail_ci_if_error: false
         path_to_write_report: ./coverage/codecov_report.txt
-        verbose: false
+        verbose: true
