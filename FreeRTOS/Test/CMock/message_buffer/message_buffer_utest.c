@@ -137,10 +137,16 @@ static MessageBufferHandle_t xMessageBuffer;
  */
 static BaseType_t shouldAbortOnAssertion;
 
+/**
+ * @brief Variable used to record the total dynamic size allocated in a test.
+ */
+static size_t dynamicMemoryAllocated = 0;
+
 /* ==========================  CALLBACK FUNCTIONS =========================== */
 
 void * pvPortMalloc( size_t xSize )
 {
+    dynamicMemoryAllocated += xSize;
     return unity_malloc( xSize );
 }
 void vPortFree( void * pv )
@@ -261,7 +267,8 @@ void setUp( void )
     xMessageBuffer = NULL;
     senderTaskWoken = 0;
     receiverTaskWoken = 0;
-    shouldAbortOnAssertion = pdTRUE;
+    shouldAbortOnAssertion = pdFALSE;
+    dynamicMemoryAllocated = 0;
 
     mock_task_Init();
     mock_fake_assert_Init();
@@ -313,7 +320,7 @@ static void validate_message_buffer_init_state( MessageBufferHandle_t xMessageBu
     TEST_ASSERT_EQUAL( 1, ucStreamBufferGetStreamBufferType( xMessageBuffer ) );
 }
 
-static void validate_and_clear_assertions( void )
+static void validate_and_clear_assertion( void )
 {
     TEST_ASSERT_EQUAL( 1, assertionFailed );
     assertionFailed = 0;
@@ -356,9 +363,15 @@ void test_xMessageBufferCreate_malloc_fail( void )
  */
 void test_xMessageBufferCreate_zero_size( void )
 {
-    EXPECT_ASSERT_BREAK( ( void ) xMessageBufferCreate( 0 ) );
+    xMessageBuffer = xMessageBufferCreate( 0 );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
+
+    TEST_ASSERT_NOT_NULL( xMessageBuffer );
+
+    TEST_ASSERT_EQUAL( 1U + sizeof( StaticMessageBuffer_t ), dynamicMemoryAllocated );
+
+    vStreamBufferDelete( xMessageBuffer );
 }
 
 /**
@@ -366,9 +379,15 @@ void test_xMessageBufferCreate_zero_size( void )
  */
 void test_xMessageBufferCreate_invalid_size( void )
 {
-    EXPECT_ASSERT_BREAK( ( void ) xMessageBufferCreate( TEST_MESSAGE_METADATA_SIZE ) );
+    xMessageBuffer = xMessageBufferCreate( TEST_MESSAGE_METADATA_SIZE );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
+
+    TEST_ASSERT_NOT_NULL( xMessageBuffer );
+
+    TEST_ASSERT_EQUAL( TEST_MESSAGE_METADATA_SIZE + 1U + sizeof( StaticMessageBuffer_t ), dynamicMemoryAllocated );
+
+    vStreamBufferDelete( xMessageBuffer );
 }
 
 /**
@@ -395,14 +414,11 @@ void test_xMessageBufferCreateStatic_null_array( void )
 {
     StaticMessageBuffer_t messageBufferStruct;
 
-    /* Tests should abort if assertion is enabled or return NULL. */
-    shouldAbortOnAssertion = pdFALSE;
-
     /* Returns NULL when NULL storage area is passed as a parameter. */
     xMessageBuffer = xMessageBufferCreateStatic( TEST_MESSAGE_BUFFER_SIZE, NULL, &messageBufferStruct );
     TEST_ASSERT_NULL( xMessageBuffer );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
 }
 
 /**
@@ -413,14 +429,11 @@ void test_xMessageBufferCreateStatic_null_struct( void )
     /* The size of message buffer array should be one greater than the required size of message buffer. */
     uint8_t messageBufferArray[ TEST_MESSAGE_BUFFER_SIZE + 1 ] = { 0 };
 
-    /* Tests should abort if assertion is enabled or return NULL. */
-    shouldAbortOnAssertion = pdFALSE;
-
     /* Returns NULL when NULL message buffer struct is passed as a parameter. */
     xMessageBuffer = xMessageBufferCreateStatic( sizeof( messageBufferArray ), messageBufferArray, NULL );
     TEST_ASSERT_NULL( xMessageBuffer );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
 }
 
 /**
@@ -432,9 +445,9 @@ void test_xMessageBufferCreateStatic_invalid_size( void )
     /* The size of message buffer array should be one greater than the required size of message buffer. */
     uint8_t messageBufferArray[ TEST_MESSAGE_BUFFER_SIZE + 1 ] = { 0 };
 
-    EXPECT_ASSERT_BREAK( ( void ) xMessageBufferCreateStatic( TEST_MESSAGE_METADATA_SIZE, messageBufferArray, &messageBufferStruct ) );
+    xMessageBuffer = xMessageBufferCreateStatic( TEST_MESSAGE_METADATA_SIZE, messageBufferArray, &messageBufferStruct );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
 }
 
 /**
@@ -446,9 +459,11 @@ void test_xMessageBufferCreateStatic_zero_size( void )
     /* The size of message buffer array should be one greater than the required size of message buffer. */
     uint8_t messageBufferArray[ TEST_MESSAGE_BUFFER_SIZE + 1 ] = { 0 };
 
-    EXPECT_ASSERT_BREAK( ( void ) xMessageBufferCreateStatic( 0, messageBufferArray, &messageBufferStruct ) );
+    xMessageBuffer = xMessageBufferCreateStatic( 0, messageBufferArray, &messageBufferStruct );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
+
+    TEST_ASSERT_NOT_NULL( xMessageBuffer );
 }
 
 /**
@@ -495,7 +510,7 @@ void test_xMessageBufferSend_message_size_integer_overflow( void )
 
     EXPECT_ASSERT_BREAK( ( void ) xMessageBufferSend( xMessageBuffer, data, TEST_MESSAGE_BUFFER_MAX_UINT_SIZE, TEST_MESSAGE_BUFFER_WAIT_TICKS ) );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
 
     vStreamBufferDelete( xMessageBuffer );
 }
@@ -539,7 +554,7 @@ void test_xMessageBufferSend_null_message( void )
 
     EXPECT_ASSERT_BREAK( ( void ) xMessageBufferSend( xMessageBuffer, NULL, TEST_MAX_MESSAGE_SIZE + 1, TEST_MESSAGE_BUFFER_WAIT_TICKS ) );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
 
     vStreamBufferDelete( xMessageBuffer );
 }
@@ -561,7 +576,7 @@ void test_xMessageBufferSend_null_message_buffer( void )
 
     EXPECT_ASSERT_BREAK( ( void ) xMessageBufferSend( NULL, message, TEST_MAX_MESSAGE_SIZE + 1, TEST_MESSAGE_BUFFER_WAIT_TICKS ) );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
 
     vStreamBufferDelete( xMessageBuffer );
 }
@@ -655,7 +670,7 @@ void test_xMessageBufferReceive_null_input_message( void )
     /* Should assert if a null input message is passed. */
     EXPECT_ASSERT_BREAK( ( void ) xMessageBufferReceive( xMessageBuffer, NULL, TEST_MAX_MESSAGE_SIZE, TEST_MESSAGE_BUFFER_WAIT_TICKS ) );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
 
     vStreamBufferDelete( xMessageBuffer );
 }
@@ -679,7 +694,7 @@ void test_xMessageBufferReceive_invalid_params( void )
     /* Should assert if a null message buffer handle is passed. */
     EXPECT_ASSERT_BREAK( ( void ) xMessageBufferReceive( NULL, message, TEST_MAX_MESSAGE_SIZE, TEST_MESSAGE_BUFFER_WAIT_TICKS ) );
 
-    validate_and_clear_assertions();
+    validate_and_clear_assertion();
 
     vStreamBufferDelete( xMessageBuffer );
 }
