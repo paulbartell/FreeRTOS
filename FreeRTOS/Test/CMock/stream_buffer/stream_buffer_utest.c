@@ -651,8 +651,7 @@ void test_xStreamBufferSend_more_than_buffer_size( void )
 }
 
 /**
- * @brief Sending zero bytes to stream buffer should return write nothing to the
- * buffer and return 0.
+ * @brief Sending zero bytes to a stream buffer should write nothing to the buffer and return 0.
  */
 void test_xStreamBufferSend_zero_bytes( void )
 {
@@ -667,7 +666,10 @@ void test_xStreamBufferSend_zero_bytes( void )
     TEST_ASSERT_NOT_NULL( xStreamBuffer );
     TEST_ASSERT_EQUAL( TEST_STREAM_BUFFER_SIZE, xStreamBufferSpacesAvailable( xStreamBuffer ) );
 
-    TEST_ASSERT_EQUAL( pdFALSE, xStreamBufferSend( xStreamBuffer, data, 0U, TEST_STREAM_BUFFER_WAIT_TICKS ) );
+    TEST_ASSERT_EQUAL( 0, xStreamBufferSend( xStreamBuffer, data, 0U, TEST_STREAM_BUFFER_WAIT_TICKS ) );
+
+    /* Validate that no data was written to the stream buffer */
+    TEST_ASSERT_EQUAL( TEST_STREAM_BUFFER_SIZE, xStreamBufferSpacesAvailable( xStreamBuffer ) );
 
     vStreamBufferDelete( xStreamBuffer );
 }
