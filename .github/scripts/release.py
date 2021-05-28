@@ -291,7 +291,7 @@ class KernelRelease(BaseRelease):
         # However in the detached HEAD state we don't have a branch to push to, so we skip
 
         # Update the header in each c/assembly file
-        self.updateFileHeaderVersions(['FreeRTOS Kernel V'], 'FreeRTOS Kernel V%s' % self.version)
+        self.updateFileHeaderVersions(['FreeRTOS Kernel V','FreeRTOS Kernel <DEVELOPMENT BRANCH>'], 'FreeRTOS Kernel V%s' % self.version)
 
         self.pushTag()
 
@@ -431,7 +431,7 @@ class FreertosRelease(BaseRelease):
     def autoRelease(self):
         info('Auto-releasing FreeRTOS V%s' % self.version)
 
-        self.updateFileHeaderVersions(['FreeRTOS Kernel V', 'FreeRTOS V'], 'FreeRTOS V%s' % self.version)
+        self.updateFileHeaderVersions(['FreeRTOS Kernel V', 'FreeRTOS V', 'FreeRTOS Kernel <DEVELOPMENT BRANCH>', 'FreeRTOS <DEVELOPMENT BRANCH>'], 'FreeRTOS V%s' % self.version)
         self.updateSubmodulePointers()
         # When baselining off a non-HEAD commit, main is left unchanged by tagging a detached HEAD,
         # applying the autocommits, tagging, and pushing the new tag data to remote.
