@@ -200,7 +200,7 @@ class BaseRelease:
         return False
 
     def restorePriorToRelease(self):
-        info('Restoring "master" to just before autorelease:%s' % self.version)
+        info('Restoring "main" to just before autorelease:%s' % self.version)
 
         self.deleteGitRelease()
         self.rollbackAutoCommits()
@@ -209,12 +209,16 @@ class BaseRelease:
 
 
 class KernelRelease(BaseRelease):
-    def __init__(self, mGit, version, commit='HEAD', git_ssh=False, git_org='FreeRTOS', repo_path=None, branch='main'):
+    def __init__(self, mGit, version, commit='HEAD', git_ssh=False, git_org='FreeRTOS', repo_path=None, branch='main', main_br_version=''):
         super().__init__(mGit, version, commit=commit, git_ssh=git_ssh, git_org=git_org, repo_path=repo_path, branch=branch)
 
         self.repo_name = '%s/FreeRTOS-Kernel' % self.git_org
         self.repo = mGit.get_repo(self.repo_name)
         self.tag = 'V%s' % version
+        if len(main_br_version) > 0:
+            self.main_br_version = 'V%s' % main_br_version
+        else:
+            self.main_br_version = ''
 
         # Parent ctor configures local_repo if caller chooses to source local repo from repo_path.
         if self.repo_path is None:
@@ -232,14 +236,14 @@ class KernelRelease(BaseRelease):
 
         print()
 
+    def updateVersionMacros(self, version_str):
+        info('Updating version macros in task.h for "%s"' % version_str)
 
-    def updateVersionMacros(self):
-        info('Updating version macros in task.h for "%s"' % self.version)
+        # Strip out any non-numeric or '.' characters before setting major / minor / build
+        (major, minor, build) = re.sub("[^0-9.]", "", version_str).split('.')
+        update_freertos_version_macros(os.path.join(self.repo_path, 'include', 'task.h'), version_str, major, minor, build)
 
-        (major, minor, build) = self.version.split('.')
-        update_freertos_version_macros(os.path.join(self.repo_path, 'include', 'task.h'), major, minor, build)
-
-        self.commitChanges(self.commit_msg_prefix + 'Bump task.h version macros to "%s"' % self.version)
+        self.commitChanges(self.commit_msg_prefix + 'Bump task.h version macros to "%s"' % version_str)
 
     def createGitRelease(self):
         '''
@@ -264,14 +268,29 @@ class KernelRelease(BaseRelease):
     def autoRelease(self):
         info('Auto-releasing FreeRTOS Kernel V%s' % self.version)
 
-        self.updateVersionMacros()
-        # When baselining off a non-HEAD commit, master is left unchanged by tagging a detached HEAD,
+        # Determine if we need to set a separate version macros for the main branch
+        if (self.commit == 'HEAD') and len(self.main_br_version) > 0 and (self.main_br_version != self.version):
+            # Update version macros for main branch
+            self.updateVersionMacros(self.main_br_version)
+
+            # Push the branch
+            self.pushLocalCommits()
+
+            # Revert the last commit in our working git repo
+            self.local_repo.git.reset('--hard','HEAD^')
+
+        # Update the version macros
+        self.updateVersionMacros(self.version)
+
+        if (self.commit == 'HEAD') and (self.main_br_version == self.version):
+            # Share a task.h version number commit for main branch and release tag)
+            self.pushLocalCommits()
+
+        # When baselining off a non-HEAD commit, main is left unchanged by tagging a detached HEAD,
         # applying the autocommits, tagging, and pushing the new tag data to remote.
         # However in the detached HEAD state we don't have a branch to push to, so we skip
 
-        if self.commit == 'HEAD':
-            self.pushLocalCommits()
-
+        # Update the header in each c/assembly file
         self.updateFileHeaderVersions(['FreeRTOS Kernel V'], 'FreeRTOS Kernel V%s' % self.version)
 
         self.pushTag()
@@ -414,7 +433,7 @@ class FreertosRelease(BaseRelease):
 
         self.updateFileHeaderVersions(['FreeRTOS Kernel V', 'FreeRTOS V'], 'FreeRTOS V%s' % self.version)
         self.updateSubmodulePointers()
-        # When baselining off a non-HEAD commit, master is left unchanged by tagging a detached HEAD,
+        # When baselining off a non-HEAD commit, main is left unchanged by tagging a detached HEAD,
         # applying the autocommits, tagging, and pushing the new tag data to remote.
         # However in the detached HEAD state we don't have a branch to push to, so we skip
         if self.commit == 'HEAD':
@@ -448,7 +467,7 @@ def configure_argparser():
     parser.add_argument('--rollback-core-version',
                         default=None,
                         required=False,
-                        help='Reset "master" to state prior to autorelease of given core version')
+                        help='Reset "main" to state prior to autorelease of given core version')
 
     parser.add_argument('--core-repo-path',
                         type=str,
@@ -465,7 +484,12 @@ def configure_argparser():
     parser.add_argument('--new-kernel-version',
                         default=None,
                         required=False,
-                        help='Reset "master" to just before the autorelease for the specified kernel version")')
+                        help='Reset "main" to just before the autorelease for the specified kernel version")')
+
+    parser.add_argument('--new-kernel-main-br-version',
+                        default='',
+                        required=False,
+                        help='Set the version in task.h on the kernel main branch to the specified value.')
 
     parser.add_argument('--kernel-commit',
                         default='HEAD',
@@ -476,7 +500,7 @@ def configure_argparser():
     parser.add_argument('--rollback-kernel-version',
                         default=None,
                         required=False,
-                        help='Reset "master" to state prior to autorelease of the given kernel version')
+                        help='Reset "main" to state prior to autorelease of the given kernel version')
 
     parser.add_argument('--kernel-repo-path',
                         type=str,
@@ -519,7 +543,8 @@ def main():
         info('Starting kernel release...')
         logIndentPush()
         rel_kernel = KernelRelease(mGit, args.new_kernel_version, args.kernel_commit, git_ssh=args.use_git_ssh,
-                                   git_org=args.git_org, repo_path=args.kernel_repo_path, branch=args.kernel_repo_branch)
+                                   git_org=args.git_org, repo_path=args.kernel_repo_path, branch=args.kernel_repo_branch,
+                                   main_br_version=args.new_kernel_main_br_version)
         rel_kernel.autoRelease()
         logIndentPop()
 
