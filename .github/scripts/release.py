@@ -215,10 +215,7 @@ class KernelRelease(BaseRelease):
         self.repo_name = '%s/FreeRTOS-Kernel' % self.git_org
         self.repo = mGit.get_repo(self.repo_name)
         self.tag = 'V%s' % version
-        if len(main_br_version) > 0:
-            self.main_br_version = 'V%s' % main_br_version
-        else:
-            self.main_br_version = ''
+        self.main_br_version = main_br_version
 
         # Parent ctor configures local_repo if caller chooses to source local repo from repo_path.
         if self.repo_path is None:
