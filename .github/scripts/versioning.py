@@ -206,7 +206,7 @@ def update_freertos_version_macros(path_macrofile, version_str, major, minor, bu
 
         if match_version.groups() and match_major.groups() and match_minor.groups() and match_build.groups():
             (old_version_string, old_version_number) = match_version.groups()
-            new_version_string = old_version_string.replace(old_version_number, version_str)
+            new_version_string = old_version_string.replace(old_version_number, '"%s"' % version_str)
             macro_file_content = macro_file_content.replace(old_version_string, new_version_string)
 
             (old_major_string, old_major_number) = match_major.groups()
