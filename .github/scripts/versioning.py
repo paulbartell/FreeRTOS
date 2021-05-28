@@ -104,7 +104,7 @@ def extract_version_number_from_file(file_path):
         match = re.search('\s*\*\s*(Amazon FreeRTOS.*V(.*))', content, re.MULTILINE)
         # Is it a kernel file?
         if match is None:
-            match = re.search('\s*\*\s*(FreeRTOS Kernel.*V([0-9]*\.[0-9]*\.[0-9]*))', content, re.MULTILINE)
+            match = re.search('\s*\*\s*(FreeRTOS Kernel.*V?([0-9]*\.[0-9]*\.[0-9]*|<DEVELOPMENT BRANCH>))', content, re.MULTILINE)
         if match is None:
             match = re.search('\s*\*\s*(FreeRTOS V([0-9]*\.[0-9]*))', content, re.MULTILINE)
         # Is it s FreeRTOS+TCP file?
@@ -309,7 +309,7 @@ def main():
         print('FreeRTOS Code:\n    %s' % freertos_path)
         print('Old Version:\n    %s' % args.freertos_old_version)
         print('New Version:\n    %s' % args.freertos_new_version)
-        process_freertos_components(freertos_path, _FREERTOS_COMPONENTS, args.freertos_old_version.strip(), args.freertos_new_version.strip(), verbose=args.verbose)            
+        process_freertos_components(freertos_path, _FREERTOS_COMPONENTS, args.freertos_old_version.strip(), args.freertos_new_version.strip(), verbose=args.verbose)
 
     if not afr_path and not freertos_path:
         parser.print_help()

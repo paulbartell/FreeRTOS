@@ -264,16 +264,18 @@ class KernelRelease(BaseRelease):
     def autoRelease(self):
         info('Auto-releasing FreeRTOS Kernel V%s' % self.version)
 
-        self.updateFileHeaderVersions(['FreeRTOS Kernel V'], 'FreeRTOS Kernel V%s' % self.version)
         self.updateVersionMacros()
-
         # When baselining off a non-HEAD commit, master is left unchanged by tagging a detached HEAD,
         # applying the autocommits, tagging, and pushing the new tag data to remote.
         # However in the detached HEAD state we don't have a branch to push to, so we skip
+
         if self.commit == 'HEAD':
             self.pushLocalCommits()
 
+        self.updateFileHeaderVersions(['FreeRTOS Kernel V'], 'FreeRTOS Kernel V%s' % self.version)
+
         self.pushTag()
+
         self.createGitRelease()
 
         info('Kernel release done.')
