@@ -57,6 +57,7 @@
 #include <stdarg.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/select.h>
 
 /* FreeRTOS kernel includes. */
 #include "FreeRTOS.h"
@@ -65,15 +66,20 @@
 /* Local includes. */
 #include "console.h"
 
-#define    BLINKY_DEMO              0
-#define    FULL_DEMO                1
-
-#define mainSELECTED_APPLICATION    BLINKY_DEMO
+#define    BLINKY_DEMO    0
+#define    FULL_DEMO      1
 
 #ifdef BUILD_DIR
-    #define BUILD                   BUILD_DIR
+    #define BUILD         BUILD_DIR
 #else
-    #define BUILD                   "./"
+    #define BUILD         "./"
+#endif
+
+/* Demo type is passed as an argument */
+#ifdef USER_DEMO
+    #define     mainSELECTED_APPLICATION    USER_DEMO
+#else /* Default Setting */
+    #define    mainSELECTED_APPLICATION     BLINKY_DEMO
 #endif
 
 /* This demo uses heap_3.c (the libc provided malloc() and free()). */
@@ -128,11 +134,13 @@ static void handle_sigint( int signal );
 StackType_t uxTimerTaskStack[ configTIMER_TASK_STACK_DEPTH ];
 
 /* Notes if the trace is running or not. */
-static BaseType_t xTraceRunning = pdTRUE;
+#if ( projCOVERAGE_TEST == 1 )
+    static BaseType_t xTraceRunning = pdFALSE;
+#else
+    static BaseType_t xTraceRunning = pdTRUE;
+#endif
 
 /*-----------------------------------------------------------*/
-
-
 
 int main( void )
 {
@@ -149,10 +157,13 @@ int main( void )
             /* Start the trace recording - the recording is written to a file if
              * configASSERT() is called. */
             printf( "\r\nTrace started.\r\nThe trace will be dumped to disk if a call to configASSERT() fails.\r\n" );
-            printf( "\r\nThe trace will be dumped to disk if Enter is hit.\r\n" );
+
+            #if ( TRACE_ON_ENTER == 1 )
+                printf( "\r\nThe trace will be dumped to disk if Enter is hit.\r\n" );
+            #endif
             uiTraceStart();
         }
-    #endif
+    #endif /* if ( projCOVERAGE_TEST != 1 ) */
 
     console_init();
     #if ( mainSELECTED_APPLICATION == BLINKY_DEMO )
@@ -237,10 +248,10 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask,
 void vApplicationTickHook( void )
 {
     /* This function will be called by each tick interrupt if
-     * configUSE_TICK_HOOK is set to 1 in FreeRTOSConfig.h.  User code can be
-     * added here, but the tick hook is called from an interrupt context, so
-     * code must not attempt to block, and only the interrupt safe FreeRTOS API
-     * functions can be used (those that end in FromISR()). */
+    * configUSE_TICK_HOOK is set to 1 in FreeRTOSConfig.h.  User code can be
+    * added here, but the tick hook is called from an interrupt context, so
+    * code must not attempt to block, and only the interrupt safe FreeRTOS API
+    * functions can be used (those that end in FromISR()). */
 
     #if ( mainSELECTED_APPLICATION == FULL_DEMO )
         {
@@ -251,25 +262,28 @@ void vApplicationTickHook( void )
 
 void traceOnEnter()
 {
-    int xReturn;
-    struct timeval tv = { 0L, 0L };
-    fd_set fds;
+    #if ( TRACE_ON_ENTER == 1 )
+        int xReturn;
+        struct timeval tv = { 0L, 0L };
+        fd_set fds;
 
-    FD_ZERO( &fds );
-    FD_SET( 0, &fds );
-    xReturn = select( 1, &fds, NULL, NULL, &tv );
+        FD_ZERO( &fds );
+        FD_SET( STDIN_FILENO, &fds );
 
-    if( xReturn > 0 )
-    {
-        if( xTraceRunning == pdTRUE )
+        xReturn = select( STDIN_FILENO + 1, &fds, NULL, NULL, &tv );
+
+        if( xReturn > 0 )
         {
-            prvSaveTraceFile();
-        }
+            if( xTraceRunning == pdTRUE )
+            {
+                prvSaveTraceFile();
+            }
 
-        /* clear the buffer */
-        char buffer[ 200 ];
-        read( 1, &buffer, 200 );
-    }
+            /* clear the buffer */
+            char buffer[ 0 ];
+            read( STDIN_FILENO, &buffer, 1 );
+        }
+    #endif /* if ( TRACE_ON_ENTER == 1 ) */
 }
 
 void vLoggingPrintf( const char * pcFormat,
@@ -413,11 +427,13 @@ void vApplicationGetTimerTaskMemory( StaticTask_t ** ppxTimerTaskTCBBuffer,
 void handle_sigint( int signal )
 {
     int xReturn;
+
     xReturn = chdir( BUILD ); /* changing dir to place gmon.out inside build */
+
     if( xReturn == -1 )
     {
-        printf( "chdir into %s error is %d\n", BUILD,  errno );
+        printf( "chdir into %s error is %d\n", BUILD, errno );
     }
 
-    exit( 1 );
+    exit( 2 );
 }
