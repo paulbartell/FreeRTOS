@@ -20,7 +20,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.FreeRTOS.org
- * https://aws.amazon.com/freertos
+ * https://github.com/FreeRTOS
+ *
  */
 
 
@@ -34,6 +35,9 @@
 #ifndef FREERTOS_IP_CONFIG_H
 #define FREERTOS_IP_CONFIG_H
 
+#include "FreeRTOSConfig.h"
+#include "tcp_netstat.h"
+
 /* Prototype for the function used to print out.  In this case it prints to the
  * console before the network is connected then a UDP port after the network has
  * connected. */
@@ -43,7 +47,7 @@ extern void vLoggingPrintf( const char * pcFormatString,
 /* Set to 1 to print out debug messages.  If ipconfigHAS_DEBUG_PRINTF is set to
  * 1 then FreeRTOS_debug_printf should be defined to the function used to print
  * out the debugging messages. */
-#define ipconfigHAS_DEBUG_PRINTF    0
+#define ipconfigHAS_DEBUG_PRINTF    1
 #if ( ipconfigHAS_DEBUG_PRINTF == 1 )
     #define FreeRTOS_debug_printf( X )    vLoggingPrintf X
 #endif
@@ -70,7 +74,7 @@ extern void vLoggingPrintf( const char * pcFormatString,
  * performed, for example FreeRTOS_send() and FreeRTOS_recv().  The timeouts can be
  * set per socket, using setsockopt().  If not set, the times below will be
  * used as defaults. */
-#define ipconfigSOCK_DEFAULT_RECEIVE_BLOCK_TIME    ( 2000 )
+#define ipconfigSOCK_DEFAULT_RECEIVE_BLOCK_TIME    ( 5000 )
 #define ipconfigSOCK_DEFAULT_SEND_BLOCK_TIME       ( 5000 )
 
 /* Include support for LLMNR: Link-local Multicast Name Resolution
@@ -86,10 +90,10 @@ extern void vLoggingPrintf( const char * pcFormatString,
  * socket has been destroyed, the result will be stored into the cache.  The next
  * call to FreeRTOS_gethostbyname() will return immediately, without even creating
  * a socket. */
-#define ipconfigUSE_DNS_CACHE                      ( 1 )
-#define ipconfigDNS_CACHE_NAME_LENGTH              ( 64 )
-#define ipconfigDNS_CACHE_ENTRIES                  ( 4 )
-#define ipconfigDNS_REQUEST_ATTEMPTS               ( 2 )
+#define ipconfigUSE_DNS_CACHE                      1
+#define ipconfigDNS_CACHE_NAME_LENGTH              ( 64U )
+#define ipconfigDNS_CACHE_ENTRIES                  ( 4U )
+#define ipconfigDNS_REQUEST_ATTEMPTS               ( 2U )
 
 /* The IP stack executes it its own task (although any application task can make
  * use of its services through the published sockets API). ipconfigUDP_TASK_PRIORITY
@@ -100,14 +104,14 @@ extern void vLoggingPrintf( const char * pcFormatString,
  * FreeRTOSConfig.h, not FreeRTOSIPConfig.h. Consideration needs to be given as to
  * the priority assigned to the task executing the IP stack relative to the
  * priority assigned to tasks that use the IP stack. */
-#define ipconfigIP_TASK_PRIORITY                   ( configMAX_PRIORITIES - 2 )
+#define ipconfigIP_TASK_PRIORITY                   ( configMAX_PRIORITIES - 2U )
 
 /* The size, in words (not bytes), of the stack allocated to the FreeRTOS+TCP
  * task.  This setting is less important when the FreeRTOS Win32 simulator is used
  * as the Win32 simulator only stores a fixed amount of information on the task
  * stack.  FreeRTOS includes optional stack overflow detection, see:
  * https://www.FreeRTOS.org/Stacks-and-stack-overflow-checking.html */
-#define ipconfigIP_TASK_STACK_SIZE_WORDS           ( configMINIMAL_STACK_SIZE * 5 )
+#define ipconfigIP_TASK_STACK_SIZE_WORDS           ( configMINIMAL_STACK_SIZE * 5U )
 
 /* ipconfigRAND32() is called by the IP stack to generate random numbers for
  * things such as a DHCP transaction number or initial sequence number.  Random
@@ -115,7 +119,7 @@ extern void vLoggingPrintf( const char * pcFormatString,
  * own random number generation method.  For example, it might be possible to
  * generate a random number by sampling noise on an analogue input. */
 extern UBaseType_t uxRand();
-#define ipconfigRAND32()    uxRand()
+#define ipconfigRAND32()                            uxRand()
 
 /* If ipconfigUSE_NETWORK_EVENT_HOOK is set to 1 then FreeRTOS+TCP will call the
  * network event hook at the appropriate times.  If ipconfigUSE_NETWORK_EVENT_HOOK
@@ -136,7 +140,7 @@ extern UBaseType_t uxRand();
  * ipconfigMAX_SEND_BLOCK_TIME_TICKS is specified in RTOS ticks.  A time in
  * milliseconds can be converted to a time in ticks by dividing the time in
  * milliseconds by portTICK_PERIOD_MS. */
-#define ipconfigUDP_MAX_SEND_BLOCK_TIME_TICKS                 ( 5000 / portTICK_PERIOD_MS )
+#define ipconfigUDP_MAX_SEND_BLOCK_TIME_TICKS                 ( 5000U / portTICK_PERIOD_MS )
 
 /* If ipconfigUSE_DHCP is 1 then FreeRTOS+TCP will attempt to retrieve an IP
  * address, netmask, DNS server address and gateway address from a DHCP server.  If
@@ -154,7 +158,7 @@ extern UBaseType_t uxRand();
  * static IP address passed as a parameter to FreeRTOS_IPInit() if the
  * re-transmission time interval reaches ipconfigMAXIMUM_DISCOVER_TX_PERIOD without
  * a DHCP reply being received. */
-#define ipconfigMAXIMUM_DISCOVER_TX_PERIOD                    ( 120000 / portTICK_PERIOD_MS )
+#define ipconfigMAXIMUM_DISCOVER_TX_PERIOD                    ( 120000U / portTICK_PERIOD_MS )
 
 /* The ARP cache is a table that maps IP addresses to MAC addresses.  The IP
  * stack can only send a UDP message to a remove IP address if it knowns the MAC
@@ -177,7 +181,7 @@ extern UBaseType_t uxRand();
  * New ARP requests are sent for ARP cache entries that are nearing their maximum
  * age.  ipconfigMAX_ARP_AGE is specified in tens of seconds, so a value of 150 is
  * equal to 1500 seconds (or 25 minutes). */
-#define ipconfigMAX_ARP_AGE                                   150
+#define ipconfigMAX_ARP_AGE                                   150U
 
 /* Implementing FreeRTOS_inet_addr() necessitates the use of string handling
  * routines, which are relatively large.  To save code space the full
@@ -195,7 +199,7 @@ extern UBaseType_t uxRand();
  * are available to the IP stack.  The total number of network buffers is limited
  * to ensure the total amount of RAM that can be consumed by the IP stack is capped
  * to a pre-determinable value. */
-#define ipconfigNUM_NETWORK_BUFFER_DESCRIPTORS                60
+#define ipconfigNUM_NETWORK_BUFFER_DESCRIPTORS                60U
 
 /* A FreeRTOS queue is used to send events from application tasks to the IP
  * stack.  ipconfigEVENT_QUEUE_LENGTH sets the maximum number of events that can
@@ -225,7 +229,7 @@ extern UBaseType_t uxRand();
 #define ipconfigUSE_TCP                                       ( 1 )
 
 /* Use the TCP socket wake context with a callback. */
-#define ipconfigSOCKET_HAS_USER_WAKE_CALLBACK_WITH_CONTEXT    ( 1 )
+#define ipconfigSOCKET_HAS_USER_WAKE_CALLBACK                 ( 1 )
 
 /* USE_WIN: Let TCP use windowing mechanism. */
 #define ipconfigUSE_TCP_WIN                                   ( 1 )
@@ -235,7 +239,7 @@ extern UBaseType_t uxRand();
  * lower value can save RAM, depending on the buffer management scheme used.  If
  * ipconfigCAN_FRAGMENT_OUTGOING_PACKETS is 1 then (ipconfigNETWORK_MTU - 28) must
  * be divisible by 8. */
-#define ipconfigNETWORK_MTU                                   1200
+#define ipconfigNETWORK_MTU                                   1500
 
 /* Set ipconfigUSE_DNS to 1 to include a basic DNS client/resolver.  DNS is used
  * through the FreeRTOS_gethostbyname() API function. */
@@ -276,34 +280,42 @@ extern UBaseType_t uxRand();
  * 32-bit memory instructions, all packets will be stored 32-bit-aligned, plus 16-bits.
  * This has to do with the contents of the IP-packets: all 32-bit fields are
  * 32-bit-aligned, plus 16-bit(!) */
-#define ipconfigPACKET_FILLER_SIZE                            2
+#define ipconfigPACKET_FILLER_SIZE                            2U
 
 /* Define the size of the pool of TCP window descriptors.  On the average, each
  * TCP socket will use up to 2 x 6 descriptors, meaning that it can have 2 x 6
  * outstanding packets (for Rx and Tx).  When using up to 10 TP sockets
  * simultaneously, one could define TCP_WIN_SEG_COUNT as 120. */
-#define ipconfigTCP_WIN_SEG_COUNT                             240
+#define ipconfigTCP_WIN_SEG_COUNT                             240U
 
 /* Each TCP socket has a circular buffers for Rx and Tx, which have a fixed
  * maximum size.  Define the size of Rx buffer for TCP sockets. */
-#define ipconfigTCP_RX_BUFFER_LENGTH                          ( 5000 )
+#define ipconfigTCP_RX_BUFFER_LENGTH                          ( 4096U )
 
 /* Define the size of Tx buffer for TCP sockets. */
-#define ipconfigTCP_TX_BUFFER_LENGTH                          ( 1000 )
+#define ipconfigTCP_TX_BUFFER_LENGTH                          ( 4096U )
 
 /* When using call-back handlers, the driver may check if the handler points to
  * real program memory (RAM or flash) or just has a random non-zero value. */
-#define ipconfigIS_VALID_PROG_ADDRESS( x )    ( ( x ) != NULL )
+#define ipconfigIS_VALID_PROG_ADDRESS( x )                    ( ( x ) != NULL )
 
 /* Include support for TCP hang protection.  All sockets in a connecting or
  * disconnecting stage will timeout after a period of non-activity. */
-#define ipconfigTCP_HANG_PROTECTION         ( 1 )
-#define ipconfigTCP_HANG_PROTECTION_TIME    ( 30 )
+#define ipconfigTCP_HANG_PROTECTION                           ( 1 )
+#define ipconfigTCP_HANG_PROTECTION_TIME                      ( 30 )
 
 /* Include support for TCP keep-alive messages. */
-#define ipconfigTCP_KEEP_ALIVE              ( 1 )
-#define ipconfigTCP_KEEP_ALIVE_INTERVAL     ( 20 ) /* in seconds */
+#define ipconfigTCP_KEEP_ALIVE                                ( 1 )
+#define ipconfigTCP_KEEP_ALIVE_INTERVAL                       ( 20U ) /* in seconds */
 
-#define portINLINE                          __inline
+#define portINLINE                                            __inline
+
+#include <stdint.h>
+
+/* Set ipconfigBUFFER_PADDING on 64-bit platforms */
+#if INTPTR_MAX == INT64_MAX
+    #define ipconfigBUFFER_PADDING                            ( 14U )
+#endif /* INTPTR_MAX == INT64_MAX */
+
 
 #endif /* FREERTOS_IP_CONFIG_H */
