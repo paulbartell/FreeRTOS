@@ -80,6 +80,8 @@ to exclude the API function. */
 #define INCLUDE_vTaskDelayUntil         1
 #define INCLUDE_vTaskDelay              1
 
+#define configSUPPORT_STATIC_ALLOCATION 1
+
 
 #define configKERNEL_INTERRUPT_PRIORITY         252
 /* !!!! configMAX_SYSCALL_INTERRUPT_PRIORITY must not be set to zero !!!!

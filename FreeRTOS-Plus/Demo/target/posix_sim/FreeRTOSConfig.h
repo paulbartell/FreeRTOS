@@ -78,7 +78,6 @@ void vConfigureTimerForRunTimeStats( void );	/* Prototype of function that initi
 
 /* Co-routine related configuration options. */
 #define configUSE_CO_ROUTINES 					0
-#define configMAX_CO_ROUTINE_PRIORITIES			( 2 )
 
 /* This demo can use of one or more example stats formatting functions.  These
 format the raw data provided by the uxTaskGetSystemState() function in to human
@@ -148,9 +147,6 @@ used with multiple project configurations.  If it is
 	#define configASSERT( x ) if( ( x ) == 0 ) vAssertCalled(  __FILE__, __LINE__ )
 
 	#define configUSE_MALLOC_FAILED_HOOK			1
-
-	/* Include the FreeRTOS+Trace FreeRTOS trace macro definitions. */
-	#include "trcRecorder.h"
 #endif
 
 /* networking definitions */
