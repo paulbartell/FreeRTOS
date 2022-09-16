@@ -20,38 +20,16 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * https://www.FreeRTOS.org
- * https://github.com/FreeRTOS
+ * https://aws.amazon.com/freertos
  *
  */
 
-/*-----------------------------------------------------------
- * Example console I/O wrappers.
- *----------------------------------------------------------*/
+/* TCP Echo Client Demo configuration */
 
-#include <stdarg.h>
-#include <stdio.h>
+#ifndef TCP_ECHO_CLIENT_CONFIG_H_
+#define TCP_ECHO_CLIENT_CONFIG_H_
 
-#include <FreeRTOS.h>
-#include <semphr.h>
+#define democonfigECHO_SERVER_ADDR    "127.0.0.1"
+#define democonfigECHO_SERVER_PORT    ( 9000U )
 
-SemaphoreHandle_t xStdioMutex;
-StaticSemaphore_t xStdioMutexBuffer;
-
-void console_init(void)
-{
-    xStdioMutex = xSemaphoreCreateMutexStatic(&xStdioMutexBuffer);
-}
-
-void console_print(const char *fmt, ...)
-{
-    va_list vargs;
-
-    va_start(vargs, fmt);
-
-    xSemaphoreTake(xStdioMutex, portMAX_DELAY);
-
-    vprintf(fmt, vargs);
-
-
-    va_end(vargs);
-}
+#endif /* TCP_ECHO_CLIENT_CONFIG_H_ */

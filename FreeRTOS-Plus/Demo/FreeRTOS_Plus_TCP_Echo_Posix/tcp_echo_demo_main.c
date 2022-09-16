@@ -24,44 +24,60 @@
  *
  */
 
-/*
- * Utility functions required to gather run time statistics.  See:
- * https://www.FreeRTOS.org/rtos-run-time-stats.html
- *
- * Note that this is a simulated port, where simulated time is a lot slower than
- * real time, therefore the run time counter values have no real meaningful
- * units.
- *
- * Also note that it is assumed this demo is going to be used for short periods
- * of time only, and therefore timer overflows are not handled.
-*/
+/* #define SdkLog vLoggingPrintf */
+#include "FreeRTOSConfig.h"
+#include "logging_levels.h"
 
-#include <time.h>
+#define LIBRARY_LOG_NAME     "TCPEchoDemo"
+#define LIBRARY_LOG_LEVEL    LOG_INFO
 
-/* FreeRTOS includes. */
-#include <FreeRTOS.h>
+#include "logging_stack.h"
 
-/* Time at start of day (in ns). */
-static unsigned long ulStartTimeNs;
+/* Standard includes. */
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdarg.h>
 
-/*-----------------------------------------------------------*/
+/* FreeRTOS kernel includes. */
+#include "FreeRTOS.h"
+#include "task.h"
 
-void vConfigureTimerForRunTimeStats( void )
+#include "FreeRTOSIPConfig.h"
+#include "FreeRTOS_IP.h"
+#include "FreeRTOS_Sockets.h"
+
+extern void vTCPEchoClientTask( void * pvParameters );
+extern void vApplicationInitLogging( void );
+extern void vApplicationInitIpStack( void );
+
+static void vInitialTask( void * pvParameters )
 {
-struct timespec xNow;
+    BaseType_t xResult = pdFALSE;
 
-	clock_gettime(CLOCK_MONOTONIC, &xNow);
-	ulStartTimeNs = xNow.tv_sec * 1000000000ul + xNow.tv_nsec;
+    vApplicationInitIpStack();
+
+    xResult = xTaskCreate( vTCPEchoClientTask, "TCPEchoClient", 1024U * 8, NULL, 2U, NULL );
+
+    configASSERT( xResult == pdTRUE );
+
+    /* xResult = xTaskCreate( vTCPEchoServerTask, "TCPEchoServeer", 1024U * 8U, NULL, 2U, NULL ); */
+
+    vTaskDelete( NULL );
 }
-/*-----------------------------------------------------------*/
 
-unsigned long ulGetRunTimeCounterValue( void )
+int main( void )
 {
-struct timespec xNow;
+    vApplicationInitLogging();
 
-	/* Time at start. */
-	clock_gettime(CLOCK_MONOTONIC, &xNow);
+    vLoggingPrintf( "Logging Initialized" );
 
-	return xNow.tv_sec * 1000000000ul + xNow.tv_nsec - ulStartTimeNs;
+    xTaskCreate( vInitialTask, "INIT", 1024U, NULL, 4U, NULL );
+
+    vTaskStartScheduler();
+
+    for( ; ; )
+    {
+        __asm volatile ( "NOP" );
+    }
 }
-/*-----------------------------------------------------------*/
