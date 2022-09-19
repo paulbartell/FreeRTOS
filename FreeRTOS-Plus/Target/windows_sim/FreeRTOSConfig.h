@@ -130,7 +130,7 @@ void vConfigureTimerForRunTimeStats( void );
 #define portGET_RUN_TIME_COUNTER_VALUE()            ulGetRunTimeCounterValue()
 
 /* Include the FreeRTOS+Trace FreeRTOS trace macro definitions. */
-#include "trcRecorder.h"
+// #include "trcRecorder.h"
 
 /* Application specific definitions follow. **********************************/
 
@@ -147,7 +147,7 @@ void vConfigureTimerForRunTimeStats( void );
  * results in the wired network being used, while setting
  * configNETWORK_INTERFACE_TO_USE to 2 results in the wireless network being
  * used. */
-#define configNETWORK_INTERFACE_TO_USE      ( 0L )
+#define configNETWORK_INTERFACE_TO_USE      ( 1L )
 
 /* The address to which logging is sent should UDP logging be enabled. */
 #define configUDP_LOGGING_ADDR0             192
@@ -217,5 +217,7 @@ void vConfigureTimerForRunTimeStats( void );
 extern void vLoggingPrintf( const char * pcFormatString,
                             ... );
 #define configPRINTF( X )    vLoggingPrintf X
+
+#define portNOP()           __nop()
 
 #endif /* FREERTOS_CONFIG_H */
