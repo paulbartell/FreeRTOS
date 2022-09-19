@@ -119,18 +119,17 @@ void vConfigureTimerForRunTimeStats( void );    /* Prototype of function that in
 extern void vAssertCalled( const char * const pcFileName,
                            unsigned long ulLine );
 
-/* projCOVERAGE_TEST should be defined on the command line so this file can be
- * used with multiple project configurations.  If it is
- */
+#define portNOP()           __asm volatile( "NOP" )
+
 #ifndef projCOVERAGE_TEST
-    #error projCOVERAGE_TEST should be defined to 1 or 0 on the command line.
+    #define projCOVERAGE_TEST 0
 #endif
 
 #if projCOVERAGE_TEST == 1
 
 /* Insert NOPs in empty decision paths to ensure both true and false paths
  * are being tested. */
-    #define mtCOVERAGE_TEST_MARKER()    __asm volatile ( "NOP" )
+    #define mtCOVERAGE_TEST_MARKER()    portNOP()
 
 /* Ensure the tick count overflows during the coverage test. */
     #define configINITIAL_TICK_COUNT        0xffffd800UL
@@ -160,5 +159,6 @@ extern void vAssertCalled( const char * const pcFileName,
 
 /* The UDP port to which print messages are sent. */
 #define configPRINT_PORT                    ( 15000 )
+
 
 #endif /* FREERTOS_CONFIG_H */

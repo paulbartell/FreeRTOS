@@ -24,18 +24,15 @@
  *
  */
 
-/* Standard includes. */
-#include <stdlib.h>
-#include <stdio.h>
+/* C Standard Library */
+#include <execinfo.h>
+#include <signal.h>
 #include <unistd.h>
-#include <stdarg.h>
-#include <fcntl.h>
+#include <stdio.h>
 
-/* FreeRTOS kernel includes. */
+/* FreeRTOS */
 #include "FreeRTOS.h"
-#include "semphr.h"
-
-static SemaphoreHandle_t xStdioMutex = NULL;
+#include "task.h"
 
 /*-----------------------------------------------------------*/
 
@@ -43,7 +40,6 @@ static SemaphoreHandle_t xStdioMutex = NULL;
     void vAssertCalled( const char * const pcFileName,
                         unsigned long ulLine )
     {
-        volatile uint32_t ulSetToNonZeroInDebuggerToContinue = 0;
         /* Copy the parameters to local volatile variables, just for debugging */
         volatile char * pcFile = ( volatile char * ) pcFileName;
         volatile uint32_t ulLineNumber = ulLine;
@@ -53,51 +49,30 @@ static SemaphoreHandle_t xStdioMutex = NULL;
          * http://www.freertos.org/a00110.html#configASSERT for more information.
          */
 
-        printf( "vAssertCalled( %s, %lu )\n", pcFileName, ulLine );
+        fprintf( stderr, "vAssertCalled( %s, %lu )\n", pcFileName, ulLine );
 
         taskENTER_CRITICAL();
         {
-            /*
-             * You can step out of this function to debug the assertion by using
-             * the debugger to set ulSetToNonZeroInDebuggerToContinue to a non-zero
-             * value.
-             */
-            while( ulSetToNonZeroInDebuggerToContinue == 0 )
-            {
-                __asm volatile ( "NOP" );
-                __asm volatile ( "NOP" );
-            }
+            void * ppvBacktraceBuffer[ 256 ];
+            int lNumPtrs = 0;
+
+            #if defined(__has_builtin)
+                #if __has_builtin(__builtin_debugtrap)
+                    __builtin_debugtrap();
+                #elif __has_builtin(__builtin_trap)
+                    __builtin_trap();
+                #else
+                    raise(SIGTRAP);
+                #endif
+            #else
+                raise(SIGTRAP);
+            #endif
+
+            lNumPtrs = backtrace( ppvBacktraceBuffer, 256 );
+            backtrace_symbols_fd( ppvBacktraceBuffer, lNumPtrs, STDOUT_FILENO );
         }
         taskEXIT_CRITICAL();
     }
 #endif /* defined( configASSERT ) */
 
 /*-----------------------------------------------------------*/
-
-void vApplicationInitLogging( void )
-{
-    static StaticSemaphore_t xStdioMutexBuffer;
-
-    if( xStdioMutex == NULL )
-    {
-        xStdioMutex = xSemaphoreCreateMutexStatic( &xStdioMutexBuffer );
-    }
-}
-
-/*-----------------------------------------------------------*/
-
-void vLoggingPrintf( const char * pcFormat,
-                     ... )
-{
-    va_list arg;
-
-    if( ( xTaskGetSchedulerState() != taskSCHEDULER_RUNNING ) ||
-        ( xSemaphoreTake( xStdioMutex, portMAX_DELAY ) == pdTRUE ) )
-    {
-        va_start( arg, pcFormat );
-        vprintf( pcFormat, arg );
-        va_end( arg );
-
-        ( void ) xSemaphoreGive( xStdioMutex );
-    }
-}

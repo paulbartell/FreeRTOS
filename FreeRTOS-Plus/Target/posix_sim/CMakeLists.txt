@@ -13,14 +13,15 @@ target_include_directories( freertos_platform PUBLIC ${CMAKE_CURRENT_LIST_DIR} )
 target_sources( freertos_platform
                 PRIVATE
                 freertos_hooks_posix.c
-                logging_posix.c
+                freertos_assert_posix.c
+                freertos_logging_posix.c
                 runtime_stats_posix.c )
 
 target_sources( freertos_platform
                 PUBLIC
                 FreeRTOSConfig.h )
 
-target_link_libraries( freertos_platform freertos_kernel )
+target_link_libraries( freertos_platform freertos_kernel  FreeRTOS::Logging )
 
 if( CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP )
     target_sources( freertos_platform
