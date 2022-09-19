@@ -25,7 +25,7 @@
  * @brief Implements mbed TLS platform functions for FreeRTOS.
  */
 
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* FreeRTOS includes. */

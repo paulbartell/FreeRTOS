@@ -6,7 +6,7 @@ set(MBEDTLS_2_VERSION 2.28.1)
 set(MBEDTLS_3_VERSION 3.2.1)
 
 option(CONFIG_NET_TLS_MBEDTLS "Build MbedTLS" OFF)
-option(CONFIG_NET_TLS_MBEDTLS_LEGACY "Use Legacy (2.28.0) MbedTLS stack." OFF)
+option(CONFIG_NET_TLS_MBEDTLS_LEGACY "Use Legacy (2.28.1) MbedTLS stack." OFF)
 
 if(CONFIG_NET_TLS_MBEDTLS OR CONFIG_NET_TLS_MBEDTLS_LEGACY )
     include(FetchContent)
@@ -57,6 +57,19 @@ if(CONFIG_NET_TLS_MBEDTLS OR CONFIG_NET_TLS_MBEDTLS_LEGACY )
                                     PUBLIC ${mbedtls_SOURCE_DIR}/library
                                     PUBLIC ${mbedtls_SOURCE_DIR}/include
                                     PUBLIC ${mbedtls_SOURCE_DIR}/include/mbedtls )
+
+        file(GLOB MBEDTLS_PUB_HEADERS ${mbedtls_SOURCE_DIR}/include/mbedtls/*.h )
+        file(GLOB MBEDTLS_PUB_HEADERS_PSA ${mbedtls_SOURCE_DIR}/include/psa/*.h )
+        file(GLOB MBEDTLS_PRIV_HEADERS ${mbedtls_SOURCE_DIR}/library/*.h )
+
+        target_sources( MbedTLS_platform
+                        PUBLIC
+                            ${mbedtls_SOURCE_DIR}/include/mbedtls
+                            ${mbedtls_SOURCE_DIR}/include/psa
+                            ${mbedtls_SOURCE_DIR}/library
+                            ${MBEDTLS_PUB_HEADERS}
+                            ${MBEDTLS_PUB_HEADERS_PSA}
+                            ${MBEDTLS_PRIV_HEADERS} )
 
         target_compile_definitions( MbedTLS_platform PUBLIC "MBEDTLS_CONFIG_FILE=\"mbedtls_config_v${MBEDTLS_VERSION}.h\"" )
 
