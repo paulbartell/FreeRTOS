@@ -36,7 +36,6 @@
 /* Standard includes. */
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdarg.h>
 
 /* FreeRTOS kernel includes. */
@@ -50,6 +49,7 @@
 extern void vTCPEchoClientTask( void * pvParameters );
 extern void vApplicationInitLogging( void );
 extern void vApplicationInitIpStack( void );
+extern void vStartSimpleTCPServerTasks( uint16_t usStackSize, UBaseType_t uxPriority );
 
 static void vInitialTask( void * pvParameters )
 {
@@ -57,16 +57,16 @@ static void vInitialTask( void * pvParameters )
 
     vApplicationInitIpStack();
 
-    xResult = xTaskCreate( vTCPEchoClientTask, "TCPEchoClient", 1024U * 8, NULL, 2U, NULL );
+    xResult = xTaskCreate( vTCPEchoClientTask, "TCPEchoClient", 1024U * 8U, NULL, 2U, NULL );
 
     configASSERT( xResult == pdTRUE );
 
-    /* xResult = xTaskCreate( vTCPEchoServerTask, "TCPEchoServeer", 1024U * 8U, NULL, 2U, NULL ); */
+    vStartSimpleTCPServerTasks( 1024U * 8U, 2U );
 
     vTaskDelete( NULL );
 }
 
-int main( void )
+int main( )
 {
     vApplicationInitLogging();
 
@@ -78,6 +78,6 @@ int main( void )
 
     for( ; ; )
     {
-        __asm volatile ( "NOP" );
+        portNOP();
     }
 }

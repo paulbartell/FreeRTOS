@@ -24,13 +24,14 @@
  *
  */
 
-#include "FreeRTOSConfig.h"
 #include "logging_levels.h"
 
-#define LIBRARY_LOG_NAME     "TCPEchoClient"
+#define LIBRARY_LOG_NAME     "EchoClient"
 #define LIBRARY_LOG_LEVEL    LOG_INFO
 
 #include "logging_stack.h"
+
+#include "FreeRTOSConfig.h"
 
 /* Standard includes. */
 #include <stdint.h>
@@ -46,6 +47,9 @@
 #include "FreeRTOS_IP.h"
 #include "FreeRTOS_Sockets.h"
 
+/* Echo server configuration */
+#include "tcp_echo_config.h"
+
 #if ( ipconfigUSE_TCP != 1 )
     #error ipconfigUSE_TCP must be set to 1 to use the TCP Echo Client
 #endif
@@ -54,21 +58,29 @@
  * for the echo reply, then close the socket again before starting over.  This
  * delay is used between each iteration to ensure the network does not get too
  * congested. */
-#define echoLOOP_DELAY    ( ( TickType_t ) 150 / portTICK_PERIOD_MS )
+#define echoLOOP_DELAY    ( ( TickType_t ) 150U / portTICK_PERIOD_MS )
 
 /* The echo server is assumed to be on port 7, which is the standard echo
  *  protocol port. */
-#ifndef democonfigECHO_SERVER_PORT
-    #define democonfigECHO_SERVER_PORT    ( 7U )
+#ifndef configECHO_SERVER_PORT
+    #define configECHO_SERVER_PORT    ( 7U )
 #endif
 
-#ifndef democonfigECHO_SERVER_ADDR
-    #define democonfigECHO_SERVER_ADDR    "127.0.0.1"
+/* Default to localhost */
+#ifndef configECHO_SERVER_ADDR
+    #define configECHO_SERVER_ADDR    "127.0.0.1"
 #endif
 
 /* The size of the buffers is a multiple of the MSS - the length of the data
  * sent is a pseudo random size between 20 and echoBUFFER_SIZES */
 #define echoBUFFER_SIZE    ( 3U * ipconfigTCP_MSS )
+
+/*-----------------------------------------------------------*/
+
+/* Rx and Tx time outs are used to ensure the sockets do not wait too long for
+ * missing data. */
+static const TickType_t xReceiveTimeOut = pdMS_TO_TICKS( 4000U );
+static const TickType_t xSendTimeOut = pdMS_TO_TICKS( 2000U );
 
 /*-----------------------------------------------------------*/
 
@@ -80,10 +92,44 @@ static BaseType_t prvCreateTxData( char * ucBuffer,
 
 /*-----------------------------------------------------------*/
 
-/* Rx and Tx time outs are used to ensure the sockets do not wait too long for
- * missing data. */
-static const TickType_t xReceiveTimeOut = pdMS_TO_TICKS( 4000 );
-static const TickType_t xSendTimeOut = pdMS_TO_TICKS( 2000 );
+/**
+ * @brief Read the echo server address and port number from the environment.
+ *
+ * @param[out] pxEchoServerAddress pointer to a struct freertos_sockaddr to populate.
+ */
+static void vGetServerAddressFromEnv( struct freertos_sockaddr * pxEchoServerAddress );
+
+/*-----------------------------------------------------------*/
+
+static void vGetServerAddressFromEnv( struct freertos_sockaddr * pxEchoServerAddress )
+{
+    const char * pcPort = getenv( "ECHO_SERVER_PORT" );
+    const char * pcServerAddr = getenv( "ECHO_SERVER_ADDR" );
+    unsigned long ulPortNum = 0U;
+
+    configASSERT( pxEchoServerAddress != NULL );
+
+    if( pcPort != NULL )
+    {
+        ulPortNum = strtoul( pcPort, NULL, 0 );
+    }
+
+    if( ulPortNum == 0 )
+    {
+        ulPortNum = configECHO_SERVER_PORT;
+    }
+
+    pxEchoServerAddress->sin_port = FreeRTOS_htons( ( uint16_t ) ulPortNum );
+
+    if( pcServerAddr == NULL )
+    {
+        pcServerAddr = configECHO_SERVER_ADDR;
+    }
+
+    pxEchoServerAddress->sin_addr = FreeRTOS_inet_addr( pcServerAddr );
+
+    LogMsg( ( "Attempting connection to: %s TCP port %lu", pcServerAddr, ulPortNum ) );
+}
 
 /*-----------------------------------------------------------*/
 
@@ -92,8 +138,8 @@ void vTCPEchoClientTask( void * pvParameters )
     Socket_t xSocket;
     struct freertos_sockaddr xEchoServerAddress;
     int32_t lLoopCount = 0UL;
-    const int32_t lMaxLoopCount = 1;
-    volatile uint32_t ulTxCount = 0UL;
+    const int32_t lMaxLoopCount = 10;
+    uint32_t ulTxCount = 0UL;
     BaseType_t xReceivedBytes, xReturned;
     BaseType_t lTransmitted, lStringLength;
     char * pcTransmittedString, * pcReceivedString;
@@ -101,9 +147,8 @@ void vTCPEchoClientTask( void * pvParameters )
     TickType_t xTimeOnEntering;
     BaseType_t ret;
 
-    uint32_t ulTxRxCycles;
-    uint32_t ulTxRxFailures;
-    uint32_t ulConnections;
+    uint32_t ulTxRxCycles = 0;
+    uint32_t ulTxRxFailures = 0;
 
     /* Rx and Tx buffers */
     char cTxBuffer[ echoBUFFER_SIZE ];
@@ -119,22 +164,18 @@ void vTCPEchoClientTask( void * pvParameters )
     pcTransmittedString = &( cTxBuffer[ 0 ] );
     pcReceivedString = &( cRxBuffer[ 0 ] );
 
-    xEchoServerAddress.sin_port = FreeRTOS_htons( democonfigECHO_SERVER_PORT );
-    xEchoServerAddress.sin_addr = FreeRTOS_inet_addr( democonfigECHO_SERVER_ADDR );
+    vGetServerAddressFromEnv( &xEchoServerAddress );
 
+    LogMsg( ( "Waiting for network UP event..." ) );
+
+    while( FreeRTOS_IsNetworkUp() == pdFALSE )
+    {
+        vTaskDelay( pdMS_TO_TICKS( 1000U ) );
+    }
+
+    LogMsg( ( "Starting TCP Echo Client" ) );
     for( ; ; )
     {
-        LogInfo( ( "TCP Echo Client task started." ) );
-
-        LogInfo( ( "Waiting for network UP event..." ) );
-
-        while( FreeRTOS_IsNetworkUp() == pdFALSE )
-        {
-            vTaskDelay( pdMS_TO_TICKS( 1000U ) );
-        }
-
-        LogInfo( ( "Network UP event received." ) );
-
         /* Create a TCP socket. */
         xSocket = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
         configASSERT( xSocket != FREERTOS_INVALID_SOCKET );
@@ -147,15 +188,11 @@ void vTCPEchoClientTask( void * pvParameters )
         /* Set the window and buffer sizes. */
         FreeRTOS_setsockopt( xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, ( void * ) &xWinProps, sizeof( xWinProps ) );
 
-        /* Connect to the echo server. */
-        printf( "connecting to echo server....\n" );
-
         ret = FreeRTOS_connect( xSocket, &xEchoServerAddress, sizeof( xEchoServerAddress ) );
 
         if( ret == 0 )
         {
-            printf( "Connected to server.. \n" );
-
+            LogMsg( ( "Connected" ) );
             /* Send a number of echo requests. */
             for( lLoopCount = 0; lLoopCount < lMaxLoopCount; lLoopCount++ )
             {
@@ -166,16 +203,19 @@ void vTCPEchoClientTask( void * pvParameters )
                 sprintf( pcTransmittedString, "TxRx message number %u", ulTxCount );
                 ulTxCount++;
 
-                printf( "sending data to the echo server \n" );
                 /* Send the string to the socket. */
                 lTransmitted = FreeRTOS_send( xSocket,                        /* The socket being sent to. */
                                               ( void * ) pcTransmittedString, /* The data being sent. */
                                               lStringLength,                  /* The length of the data being sent. */
                                               0 );                            /* No flags. */
 
-                if( lTransmitted < 0 )
+                if( lTransmitted > 0 )
                 {
-                    /* Error? */
+                    LogMsg( ( "%d of %d bytes sent", lTransmitted, lStringLength ) );
+                }
+                else
+                {
+                    LogError( ( "Failed to send %d bytes, rc=", lStringLength, lTransmitted ) );
                     break;
                 }
 
@@ -216,19 +256,24 @@ void vTCPEchoClientTask( void * pvParameters )
                  * bytes received from the echo server. */
                 if( xReceivedBytes > 0 )
                 {
+                    LogMsg( ( "%d of %d bytes received", xReceivedBytes, lStringLength ) );
+
                     /* Compare the transmitted string to the received string. */
                     configASSERT( strncmp( pcReceivedString, pcTransmittedString, lTransmitted ) == 0 );
 
-                    if( strncmp( pcReceivedString, pcTransmittedString, lTransmitted ) == 0 )
+                    if( lTransmitted == xReceivedBytes &&
+                        strncmp( pcReceivedString, pcTransmittedString, lTransmitted ) == 0 )
                     {
                         /* The echo reply was received without error. */
                         ulTxRxCycles++;
                     }
                     else
                     {
+                        LogError( ( "TCP echo data mismatch." ) );
                         /* The received string did not match the transmitted
                          * string. */
                         ulTxRxFailures++;
+
                         break;
                     }
                 }
@@ -264,10 +309,12 @@ void vTCPEchoClientTask( void * pvParameters )
                     break;
                 }
             } while( ( xTaskGetTickCount() - xTimeOnEntering ) < xReceiveTimeOut );
+
+            LogMsg( ( "Disconnected" ) );
         }
         else
         {
-            printf( "Could not connect to server %ld\n", ret );
+            LogError( ( "Failed to connect to server %ld", ret ) );
         }
 
         /* Close this socket before looping back to create another. */
@@ -276,6 +323,11 @@ void vTCPEchoClientTask( void * pvParameters )
         /* Pause for a short while to ensure the network is not too
          * congested. */
         vTaskDelay( echoLOOP_DELAY );
+
+        while( FreeRTOS_IsNetworkUp() == pdFALSE )
+        {
+            vTaskDelay( pdMS_TO_TICKS( 1000U ) );
+        }
     }
 
     vTaskDelete( NULL );

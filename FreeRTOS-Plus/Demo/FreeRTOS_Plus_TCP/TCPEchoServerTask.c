@@ -33,6 +33,13 @@
  * https://www.FreeRTOS.org/FreeRTOS-Plus/FreeRTOS_Plus_TCP/TCP_Echo_Server.html
  */
 
+#include "logging_levels.h"
+
+#define LIBRARY_LOG_NAME     "EchoServer"
+#define LIBRARY_LOG_LEVEL    LOG_INFO
+
+#include "logging_stack.h"
+
 /* Standard includes. */
 #include <stdint.h>
 #include <stdio.h>
@@ -46,17 +53,20 @@
 #include "FreeRTOS_IP.h"
 #include "FreeRTOS_Sockets.h"
 
+/* Echo server configuration */
+#include "tcp_echo_config.h"
+
 /* Remove the whole file if FreeRTOSIPConfig.h is set to exclude TCP. */
 #if ( ipconfigUSE_TCP != 1 )
     #error ipconfigUSE_TCP must be set to 1 to use the TCP Echo Server.
 #endif
 
 /* The maximum time to wait for a closing socket to close. */
-#define tcpechoSHUTDOWN_DELAY    ( pdMS_TO_TICKS( 5000 ) )
+#define tcpechoSHUTDOWN_DELAY    ( pdMS_TO_TICKS( 5000U ) )
 
 /* TCP port 7 is defined by RFC 862 */
 #ifndef configECHO_SERVER_PORT
-    #define configECHO_SERVER_PORT    7
+    #define configECHO_SERVER_PORT    ( 7U )
 #endif
 
 /*
@@ -89,7 +99,7 @@
  * Uses FreeRTOS+TCP to listen for incoming echo connections, creating a task
  * to handle each connection.
  */
-static void prvConnectionListeningTask( void * pvParameters );
+void vTCPEchoServerTask( void * pvParameters );
 
 /*
  * Created by the connection listening task to handle a single connection.
@@ -108,7 +118,7 @@ void vStartSimpleTCPServerTasks( uint16_t usStackSize,
                                  UBaseType_t uxPriority )
 {
     /* Create the TCP echo server. */
-    xTaskCreate( prvConnectionListeningTask, "ServerListener", usStackSize, NULL, uxPriority + 1, NULL );
+    xTaskCreate( vTCPEchoServerTask, "ServerListener", usStackSize, NULL, uxPriority + 1, NULL );
 
     /* Remember the requested stack size so it can be re-used by the server
      * listening task when it creates tasks to handle connections. */
@@ -116,13 +126,14 @@ void vStartSimpleTCPServerTasks( uint16_t usStackSize,
 }
 /*-----------------------------------------------------------*/
 
-static void prvConnectionListeningTask( void * pvParameters )
+void vTCPEchoServerTask( void * pvParameters )
 {
     struct freertos_sockaddr xClient, xBindAddress;
     Socket_t xListeningSocket, xConnectedSocket;
     socklen_t xSize = sizeof( xClient );
     static const TickType_t xReceiveTimeOut = portMAX_DELAY;
     const BaseType_t xBacklog = 20;
+    char pcIpAddrBuffer[ 16 ];
 
     #if ( ipconfigUSE_TCP_WIN == 1 )
         WinProperties_t xWinProps;
@@ -136,6 +147,15 @@ static void prvConnectionListeningTask( void * pvParameters )
 
     /* Just to prevent compiler warnings. */
     ( void ) pvParameters;
+
+    LogMsg( ( "Waiting for network UP event..." ) );
+
+    while( FreeRTOS_IsNetworkUp() == pdFALSE )
+    {
+        vTaskDelay( pdMS_TO_TICKS( 1000U ) );
+    }
+
+    LogMsg( ( "Starting TCP Echo Server" ) );
 
     /* Attempt to open the socket. */
     xListeningSocket = FreeRTOS_socket( FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP );
@@ -164,6 +184,10 @@ static void prvConnectionListeningTask( void * pvParameters )
         xConnectedSocket = FreeRTOS_accept( xListeningSocket, &xClient, &xSize );
         configASSERT( xConnectedSocket != FREERTOS_INVALID_SOCKET );
 
+        FreeRTOS_inet_ntoa( xClient.sin_addr, pcIpAddrBuffer );
+
+        LogInfo( ( "Spawning task for client %s:%u", pcIpAddrBuffer, xClient.sin_port ) );
+
         /* Spawn a task to handle the connection. */
         xTaskCreate( prvServerConnectionInstance, "EchoServer", usUsedStackSize, ( void * ) xConnectedSocket, tskIDLE_PRIORITY, NULL );
     }
@@ -178,6 +202,8 @@ static void prvServerConnectionInstance( void * pvParameters )
     static const TickType_t xSendTimeOut = pdMS_TO_TICKS( 5000 );
     TickType_t xTimeOnShutdown;
     uint8_t * pucRxBuffer;
+    struct freertos_sockaddr xClient;
+    char pcIpAddrBuffer[ 16 ] = { 0 };
 
     xConnectedSocket = ( Socket_t ) pvParameters;
 
@@ -188,8 +214,13 @@ static void prvServerConnectionInstance( void * pvParameters )
 
     if( pucRxBuffer != NULL )
     {
+        ( void ) FreeRTOS_GetRemoteAddress( xConnectedSocket, &xClient );
+        FreeRTOS_inet_ntoa( xClient.sin_addr, pcIpAddrBuffer );
+
         FreeRTOS_setsockopt( xConnectedSocket, 0, FREERTOS_SO_RCVTIMEO, &xReceiveTimeOut, sizeof( xReceiveTimeOut ) );
         FreeRTOS_setsockopt( xConnectedSocket, 0, FREERTOS_SO_SNDTIMEO, &xSendTimeOut, sizeof( xReceiveTimeOut ) );
+
+        LogMsg( ( "Client: %s:%d connected", pcIpAddrBuffer, xClient.sin_port ) );
 
         for( ; ; )
         {
@@ -206,6 +237,8 @@ static void prvServerConnectionInstance( void * pvParameters )
                 lSent = 0;
                 lTotalSent = 0;
 
+                LogInfo( ( "Received %d bytes from %s:%lu", lBytes, pcIpAddrBuffer, xClient.sin_port ) );
+
                 /* Call send() until all the data has been sent. */
                 while( ( lSent >= 0 ) && ( lTotalSent < lBytes ) )
                 {
@@ -218,6 +251,10 @@ static void prvServerConnectionInstance( void * pvParameters )
                     /* Socket closed? */
                     break;
                 }
+                else
+                {
+                    LogInfo( ( "Sent %d bytes to %s:%lu", lTotalSent, pcIpAddrBuffer, xClient.sin_port ) );
+                }
             }
             else
             {
@@ -226,6 +263,8 @@ static void prvServerConnectionInstance( void * pvParameters )
             }
         }
     }
+
+    LogMsg( ( "Client: %s:%d disconnected", pcIpAddrBuffer, xClient.sin_port ) );
 
     /* Initiate a shutdown in case it has not already been initiated. */
     FreeRTOS_shutdown( xConnectedSocket, FREERTOS_SHUT_RDWR );

@@ -24,12 +24,12 @@
  *
  */
 
-/* TCP Echo Client Demo configuration */
+/* TCP Echo Demo configuration */
 
-#ifndef TCP_ECHO_CLIENT_CONFIG_H_
-#define TCP_ECHO_CLIENT_CONFIG_H_
+#ifndef TCP_ECHO_CONFIG_H_
+#define TCP_ECHO_CONFIG_H_
 
-#define democonfigECHO_SERVER_ADDR    "127.0.0.1"
-#define democonfigECHO_SERVER_PORT    ( 9000U )
+#define configECHO_SERVER_ADDR    "127.0.0.1"
+#define configECHO_SERVER_PORT    ( 9000U )
 
-#endif /* TCP_ECHO_CLIENT_CONFIG_H_ */
+#endif /* TCP_ECHO_CONFIG_H_ */
