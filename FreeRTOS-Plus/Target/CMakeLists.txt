@@ -1,0 +1,46 @@
+# FreeRTOS Classic Distribution
+# Copyright (C) 2022 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+# SPDX-License-Identifier: MIT
+
+set(TARGET_POSIX_SIMULATOR_DFLT OFF)
+set(TARGET_WINDOWS_SIMULATOR_DFLT OFF)
+set(TARGET_ARM_MPS2_AN385_DFLT OFF)
+
+
+if(NOT CONFIG_TARGET_POSIX_SIMULATOR AND NOT CONFIG_TARGET_WINDOWS_SIMULATOR AND NOT CONFIG_TARGET_ARM_MPS2_AN385)
+    if($${TARGET})
+        if( ${TARGET} STREQUAL WINDOWS_SIMULATOR )
+            set( TARGET_WINDOWS_SIMULATOR_DFLT ON )
+        elseif(${TARGET} STREQUAL POSIX_SIMULATOR)
+            set( TARGET_POSIX_SIMULATOR_DFLT ON )
+        elseif( ${TARGET} STREQUAL ARM_MPS2 OR ${TARGET} STREQUAL ARM_MPS2_AN385 )
+            set( TARGET_ARM_MPS2_AN385_DFLT ON )
+        else()
+            message(FATAL_ERROR "Unrecognized TARGET configured.")
+        endif()
+        message("Detected TARGET: ${TARGET}")
+    else()
+        if(CMAKE_SYSTEM_NAME MATCHES Windows)
+            set( TARGET_WINDOWS_SIMULATOR_DFLT ON )
+            message("Auto Target: WINDOWS_SIMULATOR")
+        elseif( CMAKE_SYSTEM_NAME MATCHES "(Linux|Darwin|CYGWIN|MSYS).*" )
+            set( TARGET_POSIX_SIMULATOR_DFLT ON )
+            message("Auto Target: POSIX_SIMULATOR")
+        elseif( CMAKE_SYSTEM_NAME STREQUAL Generic AND CMAKE_SYSTEM_PROCESSOR STREQUAL ARM )
+            set( TARGET_ARM_MPS2_AN385_DFLT ON )
+            message("Auto Target: ARM_MPS2_AN385")
+        endif()
+    endif()
+endif()
+
+option( CONFIG_TARGET_POSIX_SIMULATOR "${TARGET} FreeRTOS Posix Simulator" ${TARGET_POSIX_SIMULATOR_DFLT} )
+option( CONFIG_TARGET_WINDOWS_SIMULATOR "${TARGET} FreeRTOS Windows Simulator" ${TARGET_WINDOWS_SIMULATOR_DFLT} )
+option( CONFIG_TARGET_ARM_MPS2_AN385 "${TARGET} ARM MPS2 Cortex-M3 (AN385) board" ${TARGET_ARM_MPS2_AN385_DFLT} )
+
+if( CONFIG_TARGET_POSIX_SIMULATOR )
+    add_subdirectory( posix_sim )
+elseif( CONFIG_TARGET_WINDOWS_SIMULATOR )
+    add_subdirectory( windows_sim )
+elseif( CONFIG_TARGET_ARM_MPS2_AN385 )
+    # add_subdirectory( arm/mps2_an385_cm3 )
+endif()
