@@ -7,14 +7,13 @@ cmake_minimum_required( VERSION 3.16.3 )
 
 set( CONFIG_NET_TLS_MBEDTLS ON )
 set( CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP ON )
-set( CONFIG_CRYPTO_COREPKCS11 ON )
 
 add_subdirectory(../../ lib)
 
 add_executable( core_sntp_demo
                 sntp_demo_main.c
-                DemoTasks/SNTPClientTask.c
-                DemoTasks/SampleAppTask.c )
+                SNTPClientTask.c
+                SampleAppTask.c )
 
 target_include_directories( core_sntp_demo
                             PRIVATE

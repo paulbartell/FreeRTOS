@@ -599,7 +599,7 @@ static SntpStatus_t validateServerAuth( SntpAuthContext_t * pAuthContext,
  *
  * @return The generated random number.
  */
-static uint32_t generateRandomNumber();
+static uint32_t generateRandomNumber( void );
 
 /**
  * @brief Utility to create a new FreeRTOS UDP socket and bind a random
@@ -1223,7 +1223,7 @@ static SntpStatus_t validateServerAuth( SntpAuthContext_t * pAuthContext,
 
 /*************************************************************************************/
 
-static uint32_t generateRandomNumber()
+static uint32_t generateRandomNumber( void )
 {
     CK_RV pkcs11Status = CKR_OK;
     CK_FUNCTION_LIST_PTR pFunctionList = NULL;
@@ -1257,8 +1257,8 @@ static uint32_t generateRandomNumber()
     if( pkcs11Status == CKR_OK )
     {
         if( pFunctionList->C_GenerateRandom( session,
-                                             &randomNum,
-                                             sizeof( randomNum ) ) != CKR_OK )
+                                             ( CK_BYTE_PTR) &randomNum,
+                                             sizeof( uint32_t ) ) != CKR_OK )
         {
             LogError( ( "Failed to generate random number. "
                         "PKCS #11 API, C_GenerateRandom, failed to generate random number." ) );
@@ -1432,7 +1432,7 @@ static bool calculateBackoffForNextPoll( BackoffAlgorithmContext_t * pBackoffCon
     if( shouldInitializeContext == true )
     {
         /* Initialize reconnect attempts and interval.*/
-        BackoffAlgorithm_InitializeParams( &pBackoffContext,
+        BackoffAlgorithm_InitializeParams( pBackoffContext,
                                            minPollPeriod,
                                            SNTP_DEMO_POLL_MAX_BACKOFF_DELAY_SEC,
                                            SNTP_DEMO_MAX_SERVER_BACKOFF_RETRIES );
@@ -1440,7 +1440,7 @@ static bool calculateBackoffForNextPoll( BackoffAlgorithmContext_t * pBackoffCon
 
     /* Generate a random number and calculate the new backoff poll period to wait before the next
      * time poll attempt. */
-    status = BackoffAlgorithm_GetNextBackoff( &pBackoffContext, generateRandomNumber(), &newPollPeriod );
+    status = BackoffAlgorithm_GetNextBackoff( pBackoffContext, generateRandomNumber(), &newPollPeriod );
 
     if( status == BackoffAlgorithmRetriesExhausted )
     {

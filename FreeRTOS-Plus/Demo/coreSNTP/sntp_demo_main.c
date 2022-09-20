@@ -70,21 +70,21 @@ static void vInitialTask( void * pvParameters )
     /* Create the SNTP client task that is responsible for synchronizing system time with the time servers
      * periodically. This is created as a high priority task to keep the SNTP client operation unhindered. */
     xResult = xTaskCreate( sntpTask,                 /* Function that implements the task. */
-                 "SntpClientTask",         /* Text name for the task - only used for debugging. */
-                 democonfigDEMO_STACKSIZE, /* Size of stack (in words, not bytes) to allocate for the task. */
-                 NULL,                     /* Task parameter - not used in this case. */
-                 configMAX_PRIORITIES - 1, /* Task priority, must be between 0 and configMAX_PRIORITIES - 1. */
-                 NULL );
+                           "SntpClientTask",         /* Text name for the task - only used for debugging. */
+                           democonfigDEMO_STACKSIZE, /* Size of stack (in words, not bytes) to allocate for the task. */
+                           NULL,                     /* Task parameter - not used in this case. */
+                           configMAX_PRIORITIES - 1, /* Task priority, must be between 0 and configMAX_PRIORITIES - 1. */
+                           NULL );
 
     configASSERT( xResult == pdTRUE );
 
     /* Create the task that represents an application needing wall-clock time. */
     xResult = xTaskCreate( sampleAppTask,            /* Function that implements the task. */
-                 "SampleAppTask",              /* Text name for the task - only used for debugging. */
-                 democonfigDEMO_STACKSIZE, /* Size of stack (in words, not bytes) to allocate for the task. */
-                 NULL,                     /* Task parameter - not used in this case. */
-                 tskIDLE_PRIORITY,         /* Task priority, must be between 0 and configMAX_PRIORITIES - 1. */
-                 NULL );                   /* Used to pass out a handle to the created task - not used in this case. */
+                           "SampleAppTask",          /* Text name for the task - only used for debugging. */
+                           democonfigDEMO_STACKSIZE, /* Size of stack (in words, not bytes) to allocate for the task. */
+                           NULL,                     /* Task parameter - not used in this case. */
+                           tskIDLE_PRIORITY,         /* Task priority, must be between 0 and configMAX_PRIORITIES - 1. */
+                           NULL );                   /* Used to pass out a handle to the created task - not used in this case. */
 
     configASSERT( xResult == pdTRUE );
 
