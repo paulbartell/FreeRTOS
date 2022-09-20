@@ -511,7 +511,7 @@ static CK_RV setupPkcs11ObjectForAesCmac( const SntpAuthContext_t * pAuthContext
  * @param[in] pServer The time server whose information is filled in the context.
  * @param[out] pAuthContext The authentication context to update with information about the @p pServer.
  */
-static bool populateAuthContextForServer( const char * pServer,
+static void populateAuthContextForServer( const char * pServer,
                                           SntpAuthContext_t * pAuthContext );
 
 /**
@@ -588,7 +588,7 @@ static SntpStatus_t addClientAuthCode( SntpAuthContext_t * pAuthContext,
 static SntpStatus_t validateServerAuth( SntpAuthContext_t * pAuthContext,
                                         const SntpServerInfo_t * pTimeServer,
                                         const void * pResponseData,
-                                        size_t responseSize );
+                                        uint16_t responseSize );
 
 /**
  * @brief Generates a random number using PKCS#11.
@@ -716,7 +716,7 @@ static bool resolveDns( const SntpServerInfo_t * pServerAddr,
         *pIpV4Addr = FreeRTOS_ntohl( resolvedAddr );
 
         #if defined( LIBRARY_LOG_LEVEL ) && ( LIBRARY_LOG_LEVEL != LOG_NONE )
-            uint8_t stringAddr[ 16 ];
+            char stringAddr[ 16 ];
             FreeRTOS_inet_ntoa( resolvedAddr, stringAddr );
             LogInfo( ( "Resolved time server as %s", stringAddr ) );
         #endif
@@ -913,7 +913,7 @@ static void sntpClient_SetTime( const SntpServerInfo_t * pTimeServer,
 }
 
 /**************************** Authentication Utilities and Interface Functions ***********************************************/
-static bool populateAuthContextForServer( const char * pServer,
+static void populateAuthContextForServer( const char * pServer,
                                           SntpAuthContext_t * pAuthContext )
 
 {
@@ -1133,10 +1133,10 @@ SntpStatus_t addClientAuthCode( SntpAuthContext_t * pAuthContext,
     return ( result == CKR_OK ) ? SntpSuccess : SntpErrorAuthFailure;
 }
 
-SntpStatus_t validateServerAuth( SntpAuthContext_t * pAuthContext,
-                                 const SntpServerInfo_t * pTimeServer,
-                                 const void * pResponseData,
-                                 uint16_t responseSize )
+static SntpStatus_t validateServerAuth( SntpAuthContext_t * pAuthContext,
+                                        const SntpServerInfo_t * pTimeServer,
+                                        const void * pResponseData,
+                                        uint16_t responseSize )
 {
     CK_RV result = CKR_OK;
     CK_FUNCTION_LIST_PTR functionList;
