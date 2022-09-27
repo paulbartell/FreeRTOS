@@ -35,46 +35,43 @@
 #ifndef FREERTOS_IP_CONFIG_H
 #define FREERTOS_IP_CONFIG_H
 
-/* Prototype for the function used to print out.  In this case it prints to the
-console before the network is connected then a UDP port after the network has
-connected. */
-extern void vLoggingPrintf( const char *pcFormatString, ... );
-
+#include "FreeRTOSConfig.h"
+#include "tcp_netstat.h"
 
 /* Set to 1 to print out debug messages.  If ipconfigHAS_DEBUG_PRINTF is set to
-1 then FreeRTOS_debug_printf should be defined to the function used to print
-out the debugging messages. */
-#define ipconfigHAS_DEBUG_PRINTF   1
-
-#ifdef HEAP3
-    #define xPortGetMinimumEverFreeHeapSize(x) 0
-    #define xPortGetFreeHeapSize() 0
-#endif
-
-#if( ipconfigHAS_DEBUG_PRINTF == 1 )
-#include <stdio.h>
-    #define FreeRTOS_debug_printf(X)           \
-        printf("%p->%s %d: ",                  \
-                xTaskGetCurrentTaskHandle(),   \
-               __FUNCTION__,                   \
-               __LINE__);                      \
-        vLoggingPrintf X
-#endif
+ * 1 then FreeRTOS_debug_printf should be defined to the function used to print
+ * out the debugging messages. */
+#define ipconfigHAS_DEBUG_PRINTF    1
 
 /* Set to 1 to print out non debugging messages, for example the output of the
-FreeRTOS_netstat() command, and ping replies.  If ipconfigHAS_PRINTF is set to 1
-then FreeRTOS_printf should be set to the function used to print out the
-messages. */
-#define ipconfigHAS_PRINTF      1
-#if( ipconfigHAS_PRINTF == 1 )
-#include <stdio.h>
-    #define FreeRTOS_printf(X)                 \
-        printf("%p->%s %d: ",                  \
-                xTaskGetCurrentTaskHandle(),   \
-               __FUNCTION__,                   \
-               __LINE__);                      \
-        vLoggingPrintf X
+ * FreeRTOS_netstat() command, and ping replies.  If ipconfigHAS_PRINTF is set to 1
+ * then FreeRTOS_printf should be set to the function used to print out the
+ * messages. */
+#define ipconfigHAS_PRINTF          1
+
+#if ( ipconfigHAS_DEBUG_PRINTF == 1 || ipconfigHAS_PRINTF == 1 )
+    #include "logging_levels.h"
+    #ifndef LIBRARY_LOG_NAME
+        #define LIBRARY_LOG_NAME     "+TCP"
+    #endif
+    #ifndef LIBRARY_LOG_LEVEL
+        #if ( ipconfigHAS_DEBUG_PRINTF == 1 )
+            #define LIBRARY_LOG_LEVEL LOG_DEBUG
+        #else
+            #define LIBRARY_LOG_LEVEL LOG_ERROR
+        #endif
+    #endif
+    #include "logging_stack.h"
 #endif
+
+#if ( ipconfigHAS_DEBUG_PRINTF == 1 )
+    #define FreeRTOS_debug_printf( X )    LogDebug( X )
+#endif
+
+#if ( ipconfigHAS_PRINTF == 1 )
+    #define FreeRTOS_printf( X )    LogMsg( X )
+#endif
+
 
 /* Define the byte order of the target MCU (the MCU FreeRTOS+TCP is executing
 on).  Valid options are pdFREERTOS_BIG_ENDIAN and pdFREERTOS_LITTLE_ENDIAN. */
@@ -164,7 +161,7 @@ stack will revert to using the static IP address even when ipconfigUSE_DHCP is
 set to 1 if a valid configuration cannot be obtained from a DHCP server for any
 reason.  The static configuration used is that passed into the stack by the
 FreeRTOS_IPInit() function call. */
-#define ipconfigUSE_DHCP     0
+#define ipconfigUSE_DHCP     1
 
 /* When ipconfigUSE_DHCP is set to 1, DHCP requests will be sent out at
 increasing time intervals until either a reply is received from a DHCP server
@@ -251,7 +248,7 @@ contain.  For normal Ethernet V2 frames the maximum MTU is 1500.  Setting a
 lower value can save RAM, depending on the buffer management scheme used.  If
 ipconfigCAN_FRAGMENT_OUTGOING_PACKETS is 1 then (ipconfigNETWORK_MTU - 28) must
 be divisible by 8. */
-#define ipconfigNETWORK_MTU        1200U
+#define ipconfigNETWORK_MTU        1500U
 
 /* Set ipconfigUSE_DNS to 1 to include a basic DNS client/resolver.  DNS is used
 through the FreeRTOS_gethostbyname() API function. */

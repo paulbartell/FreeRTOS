@@ -1,0 +1,56 @@
+# FreeRTOS Classic Distribution
+# Copyright (C) 2022 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+# SPDX-License-Identifier: MIT
+
+set(CMAKE_SYSTEM_PROCESSOR arm)
+set(CMAKE_SYSTEM_NAME Generic)
+set(ARM_GCC_FLAGS "")
+
+if(GCC_M_CPU)
+    set(ARM_GCC_FLAGS "${ARM_GCC_FLAGS} -mcpu=${GCC_M_CPU}")
+endif()
+
+if(GCC_M_ARCH)
+    set(ARM_GCC_FLAGS "${ARM_GCC_FLAGS} -march=${GCC_M_ARCH}")
+endif()
+
+if(GCC_M_FPU)
+    set(ARM_GCC_FLAGS "${ARM_GCC_FLAGS} -mfpu=${GCC_M_FPU}")
+endif()
+
+if(NOT GCC_M_FPU)
+    set(ARM_GCC_FLAGS "${ARM_GCC_FLAGS} -mfloat-abi=soft")
+else()
+    set(ARM_GCC_FLAGS "${ARM_GCC_FLAGS} -mfloat-abi=hard")
+endif()
+
+set(CMAKE_C_FLAGS "-specs=nosys.specs ${ARM_GCC_FLAGS} -fdata-sections -ffunction-sections -Wl,--gc-sections")
+set(CMAKE_CXX_FLAGS "${APP_CXX_FLAGS} ${CMAKE_C_FLAGS} -fno-exceptions")
+set(TC_PREFIX arm-none-eabi-)
+
+if(DEFINED TOOLCHAIN_PATH)
+    set(TC_BIN_PATH ${TOOLCHAIN_PATH}/bin/)
+else()
+    set(TC_BIN_PATH "")
+endif()
+
+set(TC_SUFFIX ${CMAKE_EXECUTABLE_SUFFIX})
+
+set(CMAKE_C_COMPILER_WORKS TRUE)
+set(CMAKE_CXX_COMPILER_WORKS TRUE)
+
+# Toolchain Utilities
+set(CMAKE_AR ${TC_BIN_PATH}${TC_PREFIX}ar${TC_SUFFIX} CACHE INTERNAL "")
+set(CMAKE_ASM_COMPILER ${TC_BIN_PATH}${TC_PREFIX}gcc${TC_SUFFIX} CACHE INTERNAL "")
+set(CMAKE_C_COMPILER ${TC_BIN_PATH}${TC_PREFIX}gcc${TC_SUFFIX} CACHE INTERNAL "")
+set(CMAKE_CXX_COMPILER ${TC_BIN_PATH}${TC_PREFIX}g++${TC_SUFFIX} CACHE INTERNAL "" )
+set(CMAKE_LINKER ${TC_BIN_PATH}${TC_PREFIX}gcc${TC_SUFFIX} CACHE INTERNAL "")
+set(CMAKE_OBJCOPY ${TC_BIN_PATH}${TC_PREFIX}objcopy${TC_SUFFIX} CACHE INTERNAL "")
+set(CMAKE_RANLIB ${TC_BIN_PATH}${TC_PREFIX}ranlib${TC_SUFFIX} CACHE INTERNAL "")
+set(CMAKE_SIZE ${TC_BIN_PATH}${TC_PREFIX}size${TC_SUFFIX} CACHE INTERNAL "")
+set(CMAKE_STRIP ${TC_BIN_PATH}${TC_PREFIX}size${TC_SUFFIX} CACHE INTERNAL "")
+
+set(CMAKE_C_FLAGS_DEBUG "-Os -g" CACHE INTERNAL "")
+set(CMAKE_C_FLAGS_RELEASE "-Os -DNDEBUG" CACHE INTERNAL "")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}" CACHE INTERNAL "")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}" CACHE INTERNAL "")
