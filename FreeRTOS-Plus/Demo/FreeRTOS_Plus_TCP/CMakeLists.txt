@@ -2,10 +2,12 @@
 # Copyright (C) 2022 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
 # SPDX-License-Identifier: MIT
 
-project("FreeRTOS+TCP Echo Client / Server Demo")
-cmake_minimum_required(VERSION 3.16.3)
-
 if(NOT FREERTOS_PLUS_CONFIGURED)
+    include( ../../Target/toolchain.cmake )
+
+    project("FreeRTOS+TCP Echo Client / Server Demo")
+    cmake_minimum_required(VERSION 3.16.3)
+
     set( CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP ON )
     add_subdirectory(../../ lib)
 endif()
@@ -22,6 +24,7 @@ target_sources( tcp_echo_demo
                 tcp_echo_config.h )
 
 target_link_libraries( tcp_echo_demo
+                       PRIVATE freertos_kernel
                        PRIVATE FreeRTOS::TCP
                        PRIVATE FreeRTOS::Logging
                        PRIVATE FreeRTOS::Platform )

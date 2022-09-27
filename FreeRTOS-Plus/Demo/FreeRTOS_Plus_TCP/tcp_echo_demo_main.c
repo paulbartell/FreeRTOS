@@ -47,15 +47,15 @@
 #include "FreeRTOS_Sockets.h"
 
 extern void vTCPEchoClientTask( void * pvParameters );
-extern void vApplicationInitLogging( void );
-extern void vApplicationInitIpStack( void );
+extern void vPlatformInitLogging( void );
+extern void vPlatformInitIpStack( void );
 extern void vStartSimpleTCPServerTasks( uint16_t usStackSize, UBaseType_t uxPriority );
 
 static void vInitialTask( void * pvParameters )
 {
     BaseType_t xResult = pdFALSE;
 
-    vApplicationInitIpStack();
+    vPlatformInitIpStack();
 
     xResult = xTaskCreate( vTCPEchoClientTask, "TCPEchoClient", 1024U * 8U, NULL, 2U, NULL );
 
@@ -68,7 +68,7 @@ static void vInitialTask( void * pvParameters )
 
 int main( )
 {
-    vApplicationInitLogging();
+    vPlatformInitLogging();
 
     vLoggingPrintf( "Logging Initialized" );
 
