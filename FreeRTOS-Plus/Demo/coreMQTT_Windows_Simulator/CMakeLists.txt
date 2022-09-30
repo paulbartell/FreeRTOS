@@ -2,22 +2,19 @@
 # Copyright (C) 2022 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
 # SPDX-License-Identifier: MIT
 
-project( "coreMQTT Windows Simulator Demos" )
-cmake_minimum_required( VERSION 3.16.3 )
-
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
 if(NOT FREERTOS_PLUS_CONFIGURED)
+    include( ../../Target/toolchain.cmake )
+
+    project( "coreMQTT Demos" )
+    cmake_minimum_required( VERSION 3.16.3 )
+
+    set( CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP ON )
     set( CONFIG_NET_TLS_MBEDTLS ON )
     set( CONFIG_NET_TLS_WOLFSSL ON )
-    set( CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP ON )
 
-    if(WIN32)
-        add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-    endif()
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
     add_subdirectory(../../ lib)
-
 endif()
 
 add_subdirectory( MQTT_Basic_TLS )
