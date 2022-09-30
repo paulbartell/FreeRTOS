@@ -49,14 +49,14 @@
 #include "demo_config.h"
 #include "common_demo_include.h"
 
-extern void vApplicationInitLogging( void );
-extern void vApplicationInitIpStack( void );
+extern void vPlatformInitLogging( void );
+extern void vPlatformInitIpStack( void );
 
 static void vInitialTask( void * pvParameters )
 {
     BaseType_t xResult = pdFALSE;
 
-    vApplicationInitIpStack();
+    vPlatformInitIpStack();
 
     LogMsg( ( "Waiting for network UP event..." ) );
 
@@ -100,7 +100,7 @@ static void vInitialTask( void * pvParameters )
 
 int main( void )
 {
-    vApplicationInitLogging();
+    vPlatformInitLogging();
 
     xTaskCreate( vInitialTask, "INIT", 1024U, NULL, 4U, NULL );
 
