@@ -64,13 +64,13 @@
 
 extern void vStartSimpleMQTTDemo( void );
 
-extern void vApplicationInitLogging( void );
-extern void vApplicationInitIpStack( void );
+extern void vPlatformInitLogging( void );
+extern void vPlatformInitIpStack( void );
 
 static void vInitialTask( void * pvParameters )
 {
     BaseType_t xResult = pdFALSE;
-    vApplicationInitIpStack();
+    vPlatformInitIpStack();
 
     LogInfo( ( "Waiting for network UP event..." ) );
     while( FreeRTOS_IsNetworkUp() == pdFALSE )
@@ -87,7 +87,7 @@ static void vInitialTask( void * pvParameters )
 
 int main( void )
 {
-    vApplicationInitLogging();
+    vPlatformInitLogging();
 
     vLoggingPrintf( "Logging Initialized" );
 
