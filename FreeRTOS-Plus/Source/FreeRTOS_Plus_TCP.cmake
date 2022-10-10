@@ -98,7 +98,7 @@ if(CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP)
         message(FATAL_ERROR "No FreeRTOS+TCP buffer allocation scheme was configured. Define either CONFIG_NET_IP_STACK_BUFFER_ALLOCATION_STATIC or CONFIG_NET_IP_STACK_BUFFER_ALLOCATION_DYNAMIC.")
     endif()
 
-    target_link_libraries(FreeRTOS_TCP PRIVATE freertos_kernel FreeRTOS::Platform )
+    target_link_libraries(FreeRTOS_TCP PRIVATE freertos_kernel FreeRTOS::Platform FreeRTOS::Logging )
 
     #### Compiler Support ####
 
@@ -167,7 +167,7 @@ if(CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP)
                         ${PLUS_TCP_PORT_DIR}/NetworkInterface/MPS2_AN385/ether_lan9118/smsc9220_eth_drv.c )
 
         target_include_directories( FreeRTOS_TCP
-                                    PRIVATE
+                                    PUBLIC
                                     ${PLUS_TCP_PORT_DIR}/NetworkInterface/MPS2_AN385
                                     ${PLUS_TCP_PORT_DIR}/NetworkInterface/MPS2_AN385/ether_lan9118 )
 
