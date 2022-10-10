@@ -2,13 +2,17 @@
 # Copyright (C) 2022 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
 # SPDX-License-Identifier: MIT
 
-project( "CoreSNTP Windows Simulator Demo" )
-cmake_minimum_required( VERSION 3.16.3 )
+if(NOT FREERTOS_PLUS_CONFIGURED)
+    include( ../../Target/toolchain.cmake )
 
-set( CONFIG_NET_TLS_MBEDTLS ON )
-set( CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP ON )
+    project( "CoreSNTP Demo" )
+    cmake_minimum_required( VERSION 3.16.3 )
 
-add_subdirectory(../../ lib)
+    set( CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP ON )
+    set( CONFIG_NET_TLS_MBEDTLS ON )
+
+    add_subdirectory(../../ lib)
+endif()
 
 add_executable( core_sntp_demo
                 sntp_demo_main.c
