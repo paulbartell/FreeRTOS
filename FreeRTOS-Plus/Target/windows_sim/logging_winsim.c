@@ -252,6 +252,16 @@ static void prvCreatePrintSocket( void * pvParameter1,
         xPrintSocket = xSocket;
     }
 }
+
+/*-----------------------------------------------------------*/
+
+void vLoggingPrintfLine( const char * pcFormat,
+                         ... )
+{
+
+}
+
+
 /*-----------------------------------------------------------*/
 
 void vLoggingPrintf( const char * pcFormat,

@@ -51,14 +51,14 @@ static SemaphoreHandle_t xStdoutMutex = NULL;
 static MessageBufferHandle_t xStdoutBuffer = NULL;
 static StaticMessageBuffer_t xStdoutBufferStatic = { 0 };
 static uint8_t pucStdoutBufferData[ STDOUT_MAX_LEN + 8U ] = { 0 };
-static char pcStdoutLineBuffer[ STDOUT_MAX_LEN ] = { 0 };
+static char pcStdoutLineBuffer[ STDOUT_MAX_LEN + 2 ] = { 0 };
 static pthread_t xStdoutThread;
 struct event * pxStdoutDataReadyEvent = NULL;
 
 
 /*-----------------------------------------------------------*/
 
-void vApplicationInitLogging( void )
+void vPlatformInitLogging( void )
 {
     static StaticSemaphore_t xStdoutMutexBuffer;
     int lRslt = 0;
@@ -88,11 +88,16 @@ void vApplicationInitLogging( void )
 
     lRslt = pthread_create( &xStdoutThread, NULL, vStdoutThread, NULL );
     configASSERT( lRslt == 0U );
+
+    if( xStdoutMutex != NULL )
+    {
+        ( void ) xSemaphoreGive( xStdoutMutex );
+    }
 }
 
 /*-----------------------------------------------------------*/
 
-void vApplicationDeInitLogging( void )
+void vPlatformDeInitLogging( void )
 {
     vSemaphoreDelete( xStdoutMutex );
 }
@@ -118,6 +123,63 @@ void vLoggingPrintf( const char * pcFormat,
                  pcStdoutLineBuffer[ lLen - 1U ] == '\n' ) )
         {
             lLen--;
+        }
+
+        if( lLen > 0 )
+        {
+            ( void ) xMessageBufferSend( xStdoutBuffer, pcStdoutLineBuffer, ( size_t ) lLen, portMAX_DELAY );
+            event_signal( pxStdoutDataReadyEvent );
+        }
+
+        ( void ) xSemaphoreGive( xStdoutMutex );
+    }
+}
+
+/*-----------------------------------------------------------*/
+
+void vLoggingPrintfLine( const char * pcLogName,
+                         const char * pcLogLevel,
+                         const char * pcFunctionName,
+                         size_t uxLineNumber,
+                         const char * pcFormat,
+                         ... )
+{
+    va_list arg;
+    int lLen = 0;
+
+    if( ( xTaskGetSchedulerState() != taskSCHEDULER_RUNNING ) ||
+        ( xSemaphoreTake( xStdoutMutex, portMAX_DELAY ) == pdTRUE ) )
+    {
+        if( pcLogLevel == NULL )
+        {
+            lLen = snprintf( pcStdoutLineBuffer, STDOUT_MAX_LEN, "[%s] ", pcLogName );
+        }
+        else
+        {
+            lLen = snprintf( pcStdoutLineBuffer, STDOUT_MAX_LEN, "[%s] %s: ", pcLogName, pcLogLevel );
+        }
+
+        if( lLen > 0 &&
+            lLen < STDOUT_MAX_LEN )
+        {
+            va_start( arg, pcFormat );
+            lLen += vsnprintf( &( pcStdoutLineBuffer[ lLen ] ), STDOUT_MAX_LEN + 1 - lLen, pcFormat, arg );
+            va_end( arg );
+        }
+
+        /* Strip any CR or LF characters from end */
+        while( lLen > 0 &&
+               ( pcStdoutLineBuffer[ lLen - 1U ] == '\r' ||
+                 pcStdoutLineBuffer[ lLen - 1U ] == '\n' ) )
+        {
+            lLen--;
+        }
+
+        if( ( lLen > 0 ) &&
+            ( lLen < STDOUT_MAX_LEN ) &&
+            ( pcLogLevel != NULL ) )
+        {
+            lLen += snprintf( &( pcStdoutLineBuffer[ lLen ] ), STDOUT_MAX_LEN + 1 - lLen, "    (%s:%lu)", pcFunctionName, uxLineNumber );
         }
 
         if( lLen > 0 )

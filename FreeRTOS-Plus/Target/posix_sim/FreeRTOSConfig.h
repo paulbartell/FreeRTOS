@@ -121,44 +121,23 @@ extern void vAssertCalled( const char * const pcFileName,
 
 #define portNOP()           __asm volatile( "NOP" )
 
-#ifndef projCOVERAGE_TEST
-    #define projCOVERAGE_TEST 0
-#endif
+#define mtCOVERAGE_TEST_MARKER()    portNOP()
 
-#if projCOVERAGE_TEST == 1
-
-/* Insert NOPs in empty decision paths to ensure both true and false paths
- * are being tested. */
-    #define mtCOVERAGE_TEST_MARKER()    portNOP()
-
-/* Ensure the tick count overflows during the coverage test. */
-    #define configINITIAL_TICK_COUNT        0xffffd800UL
-
-/* Allows tests of trying to allocate more than the heap has free. */
-    #define configUSE_MALLOC_FAILED_HOOK    0
-
-/* To test builds that remove the static qualifier for debug builds. */
-    #define portREMOVE_STATIC_QUALIFIER
-#else /* if projCOVERAGE_TEST == 1 */
-
-/* It is a good idea to define configASSERT() while developing.  configASSERT()
+/*
+ * It is a good idea to define configASSERT() while developing.  configASSERT()
  * uses the same semantics as the standard C assert() macro.  Don't define
  * configASSERT() when performing code coverage tests though, as it is not
  * intended to asserts() to fail, some some code is intended not to run if no
- * errors are present. */
-    #define configASSERT( x )    if( ( x ) == 0 ) vAssertCalled( __FILE__, __LINE__ )
+ * errors are present.
+ */
 
-    #define configUSE_MALLOC_FAILED_HOOK    1
-#endif /* if projCOVERAGE_TEST == 1 */
+#define configASSERT( x )    if( ( x ) == 0 ) vAssertCalled( __FILE__, __LINE__ )
+
+#define configUSE_MALLOC_FAILED_HOOK    1
 
 /* networking definitions */
 #define configMAC_ISR_SIMULATOR_PRIORITY    ( configMAX_PRIORITIES - 1 )
-#define ipconfigUSE_NETWORK_EVENT_HOOK      1
-/*#define ipconfigSOCK_DEFAULT_RECEIVE_BLOCK_TIME  pdMS_TO_TICKS(5000) */
+
 #define configNETWORK_INTERFACE_TO_USE      1L
-
-/* The UDP port to which print messages are sent. */
-#define configPRINT_PORT                    ( 15000 )
-
 
 #endif /* FREERTOS_CONFIG_H */

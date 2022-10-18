@@ -146,7 +146,7 @@ BaseType_t __weak__ xApplicationGetRandomNumber( uint32_t * pulNumber )
 
 /*-----------------------------------------------------------*/
 
-void __weak__ vApplicationInitIpStack( void )
+void __weak__ vPlatformInitIpStack( void )
 {
     UBaseType_t uxRandomNumber;
     BaseType_t xResult;

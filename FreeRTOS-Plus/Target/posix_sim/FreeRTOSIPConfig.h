@@ -38,35 +38,42 @@
 #include "FreeRTOSConfig.h"
 #include "tcp_netstat.h"
 
-/* Prototype for the function used to print out.  In this case it prints to the
- * console before the network is connected then a UDP port after the network has
- * connected. */
-extern void vLoggingPrintf( const char * pcFormatString,
-                            ... );
-
 /* Set to 1 to print out debug messages.  If ipconfigHAS_DEBUG_PRINTF is set to
  * 1 then FreeRTOS_debug_printf should be defined to the function used to print
  * out the debugging messages. */
 #define ipconfigHAS_DEBUG_PRINTF    0
-#if ( ipconfigHAS_DEBUG_PRINTF == 1 )
-    #ifndef LOGGING_STACK_H
-        #include "logging_levels.h"
-        #define LIBRARY_LOG_NAME     "+TCP"
-        #define LIBRARY_LOG_LEVEL    LOG_DEBUG
-
-        #include "logging_stack.h"
-    #endif
-
-    #define FreeRTOS_debug_printf( X )    LogDebug( X )
-#endif
 
 /* Set to 1 to print out non debugging messages, for example the output of the
  * FreeRTOS_netstat() command, and ping replies.  If ipconfigHAS_PRINTF is set to 1
  * then FreeRTOS_printf should be set to the function used to print out the
  * messages. */
 #define ipconfigHAS_PRINTF    1
+
+
+#if ( ipconfigHAS_DEBUG_PRINTF == 1 || ipconfigHAS_PRINTF == 1 )
+    #include "logging_levels.h"
+
+    #ifndef LIBRARY_LOG_NAME
+        #define LIBRARY_LOG_NAME     "+TCP"
+    #endif
+
+    #ifndef LIBRARY_LOG_LEVEL
+        #if ( ipconfigHAS_DEBUG_PRINTF == 1 )
+            #define LIBRARY_LOG_LEVEL LOG_DEBUG
+        #else
+            #define LIBRARY_LOG_LEVEL    LOG_ERROR
+        #endif
+    #endif
+
+    #include "logging_stack.h"
+#endif
+
+#if ( ipconfigHAS_DEBUG_PRINTF == 1 )
+    #define FreeRTOS_debug_printf( X )    LogDebug( X )
+#endif
+
 #if ( ipconfigHAS_PRINTF == 1 )
-    #define FreeRTOS_printf( X )    vLoggingPrintf X
+    #define FreeRTOS_printf( X )    LogMsg( X )
 #endif
 
 /* Define the byte order of the target MCU (the MCU FreeRTOS+TCP is executing
@@ -247,7 +254,7 @@ extern UBaseType_t uxRand();
  * lower value can save RAM, depending on the buffer management scheme used.  If
  * ipconfigCAN_FRAGMENT_OUTGOING_PACKETS is 1 then (ipconfigNETWORK_MTU - 28) must
  * be divisible by 8. */
-#define ipconfigNETWORK_MTU                            1500
+#define ipconfigNETWORK_MTU                            1500U
 
 /* Set ipconfigUSE_DNS to 1 to include a basic DNS client/resolver.  DNS is used
  * through the FreeRTOS_gethostbyname() API function. */

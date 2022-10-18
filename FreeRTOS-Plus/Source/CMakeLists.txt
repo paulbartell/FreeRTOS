@@ -52,7 +52,6 @@ target_include_directories( FreeRTOS_corePKCS11
 
 target_sources( FreeRTOS_corePKCS11
                 PUBLIC
-                corePKCS11/source/include/pkcs11.h
                 corePKCS11/source/include/core_pkcs11.h
                 corePKCS11/source/include/core_pkcs11_config_defaults.h
                 corePKCS11/source/include/core_pkcs11_pal.h
@@ -61,7 +60,8 @@ target_sources( FreeRTOS_corePKCS11
                 config/core_pkcs11_config.h )
 
 target_link_libraries( FreeRTOS_corePKCS11
-                        PRIVATE FreeRTOS::Logging )
+                        PRIVATE FreeRTOS::Logging
+                        PUBLIC OASIS::PKCS11 )
 
 if(CONFIG_NET_TLS_MBEDTLS)
     target_sources( FreeRTOS_corePKCS11

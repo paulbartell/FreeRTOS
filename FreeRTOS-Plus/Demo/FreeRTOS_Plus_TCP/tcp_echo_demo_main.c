@@ -42,6 +42,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "portmacro.h"
+
 #include "FreeRTOSIPConfig.h"
 #include "FreeRTOS_IP.h"
 #include "FreeRTOS_Sockets.h"
@@ -69,8 +71,6 @@ static void vInitialTask( void * pvParameters )
 int main( )
 {
     vPlatformInitLogging();
-
-    vLoggingPrintf( "Logging Initialized" );
 
     xTaskCreate( vInitialTask, "INIT", 1024U, NULL, 4U, NULL );
 

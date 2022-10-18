@@ -283,7 +283,7 @@ UBaseType_t uxRand( void )
     }
 #endif /* configSUPPORT_STATIC_ALLOCATION == 1U  */
 
-void vApplicationInitLogging( void )
+void vPlatformInitLogging( void )
 {
     vLoggingInit( pdTRUE, pdFALSE, pdFALSE, 0U, 0U );
 }

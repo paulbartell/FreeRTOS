@@ -49,6 +49,10 @@ if(CONFIG_NET_TLS_MBEDTLS OR CONFIG_NET_TLS_MBEDTLS_LEGACY )
         target_sources( MbedTLS_platform
                         PRIVATE mbedtls_freertos_port.c )
 
+        target_link_libraries( MbedTLS_platform
+                               PRIVATE
+                               FreeRTOS::Logging )
+
         target_include_directories( MbedTLS_platform
                                     PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include )
 

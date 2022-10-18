@@ -240,6 +240,9 @@ aborted. */
 /* USE_TCP: Use TCP and all its features */
 #define ipconfigUSE_TCP             ( 1 )
 
+/* Use the TCP socket wake context with a callback. */
+#define ipconfigSOCKET_HAS_USER_WAKE_CALLBACK                 ( 1 )
+
 /* USE_WIN: Let TCP use windowing mechanism. */
 #define ipconfigUSE_TCP_WIN         ( 1 )
 

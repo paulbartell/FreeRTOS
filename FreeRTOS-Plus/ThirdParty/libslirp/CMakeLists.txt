@@ -12,49 +12,6 @@ if(CONFIG_NET_IP_STACK_NETIF_LIBSLIRP)
         pkg_search_module(SLIRP slirp)
     endif()
 
-    if(NOT GLIB_FOUND)
-        find_program(MESON_BIN NAMES "meson" DOC "Path to meson executable" REQUIRED)
-        find_program(NINJA_BIN NAMES "ninja" DOC "Path to ninja build executable" REQUIRED)
-
-        set(GLIB_VERSION_MAJOR "2")
-        set(GLIB_VERSION_MINOR "73")
-        set(GLIB_VERSION_PATCH "3")
-        set(GLIB_VERSION_STR_MM ${GLIB_VERSION_MAJOR}.${GLIB_VERSION_MINOR})
-        set(GLIB_VERSION_STR_MMP ${GLIB_VERSION_STR_MM}.${GLIB_VERSION_PATCH})
-        set(GLIB_ARCHIVE_URL https://download.gnome.org/sources/glib/${GLIB_VERSION_STR_MM}/glib-${GLIB_VERSION_STR_MMP}.tar.xz)
-
-        set(GLIB_INSTALL_DIR ${CMAKE_CURRENT_LIST_DIR}/glib-${GLIB_VERSION_STR_MMP}-install)
-        ExternalProject_Add(
-            GLIB
-            URL ${GLIB_ARCHIVE_URL}
-            URL_HASH SHA256=df1a2b841667d6b48b2ef6969ebda4328243829f6e45866726f806f90f64eead
-            PREFIX glib
-            INSTALL_DIR ${GLIB_INSTALL_DIR}
-            CONFIGURE_COMMAND
-                ${MESON_BIN} --prefix=<INSTALL_DIR> <BINARY_DIR> <SOURCE_DIR>
-                # --disable-regex \
-                # --disable-mem-pools \
-                # -Dinstalled_tests=false \
-                # -Dtests=false \
-                # -Dxattr=false \
-                # -Dlibelf=disabled \
-                # -Dselinux=disabled \
-                # -Dlibmount=disabled \
-                # -Diconv=external \
-            BUILD_COMMAND
-                ${NINJA_BIN} -C <BINARY_DIR>
-            INSTALL_COMMAND
-                ${NINJA_BIN} -C <BINARY_DIR> install
-        )
-
-        set(GLIB_INCLUDE_DIRS ${GLIB_INSTALL_DIR}/include
-                              ${GLIB_INSTALL_DIR}/include/glib-2.0
-                              ${GLIB_INSTALL_DIR}/lib/glib-2.0/include )
-
-        set(GLIB_LIBRARY_DIRS ${GLIB_INSTALL_DIR}/lib)
-        set(GLIB_LIBRARIES "glib-2.0")
-    endif()
-
     if(SLIRP_FOUND)
         add_library( slirp INTERFACE )
         target_include_directories(slirp INTERFACE ${SLIRP_INCLUDE_DIRS})
@@ -171,7 +128,52 @@ if(CONFIG_NET_IP_STACK_NETIF_LIBSLIRP)
             set(LIBRESOLV "-lresolv")
         endif()
 
-        add_dependencies( slirp GLIB )
+        if(NOT GLIB_FOUND)
+            set(GLIB_VERSION_MAJOR "2")
+            set(GLIB_VERSION_MINOR "73")
+            set(GLIB_VERSION_PATCH "3")
+            set(GLIB_VERSION_STR_MM ${GLIB_VERSION_MAJOR}.${GLIB_VERSION_MINOR})
+            set(GLIB_VERSION_STR_MMP ${GLIB_VERSION_STR_MM}.${GLIB_VERSION_PATCH})
+            set(GLIB_ARCHIVE_URL https://download.gnome.org/sources/glib/${GLIB_VERSION_STR_MM}/glib-${GLIB_VERSION_STR_MMP}.tar.xz)
+
+            set(GLIB_INSTALL_DIR ${CMAKE_CURRENT_LIST_DIR}/glib-${GLIB_VERSION_STR_MMP}-install)
+
+            if(NOT IS_DIRECTORY ${GLIB_INSTALL_DIR})
+                find_program(MESON_BIN NAMES "meson" DOC "Path to meson executable" REQUIRED)
+                find_program(NINJA_BIN NAMES "ninja" DOC "Path to ninja build executable" REQUIRED)
+
+                ExternalProject_Add(
+                    GLIB
+                    URL ${GLIB_ARCHIVE_URL}
+                    URL_HASH SHA256=df1a2b841667d6b48b2ef6969ebda4328243829f6e45866726f806f90f64eead
+                    PREFIX glib
+                    INSTALL_DIR ${GLIB_INSTALL_DIR}
+                    CONFIGURE_COMMAND
+                        ${MESON_BIN}
+                        -Dinstalled_tests=false
+                        -Dtests=false
+                        -Dxattr=false
+                        -Dlibelf=disabled
+                        -Dselinux=disabled
+                        -Dlibmount=disabled
+                        -Diconv=external
+                        --prefix=<INSTALL_DIR> <BINARY_DIR> <SOURCE_DIR>
+                    BUILD_COMMAND
+                        ${NINJA_BIN} -C <BINARY_DIR>
+                    INSTALL_COMMAND
+                        ${NINJA_BIN} -C <BINARY_DIR> install
+                )
+
+                add_dependencies( slirp GLIB )
+            endif()
+
+            set(GLIB_INCLUDE_DIRS ${GLIB_INSTALL_DIR}/include
+                                  ${GLIB_INSTALL_DIR}/include/glib-2.0
+                                  ${GLIB_INSTALL_DIR}/lib/glib-2.0/include )
+
+            set(GLIB_LIBRARY_DIRS ${GLIB_INSTALL_DIR}/lib)
+            set(GLIB_LIBRARIES "glib-2.0")
+        endif()
 
         target_include_directories(slirp PRIVATE ${GLIB_INCLUDE_DIRS})
         target_link_directories(slirp PRIVATE ${GLIB_LIBRARY_DIRS})

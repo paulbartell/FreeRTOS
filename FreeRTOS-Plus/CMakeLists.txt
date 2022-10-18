@@ -35,6 +35,9 @@ add_subdirectory( Target ${CMAKE_CURRENT_BINARY_DIR}/target )
 check_init_submodule( ../FreeRTOS/Source )
 add_subdirectory( ../FreeRTOS/Source ${CMAKE_CURRENT_BINARY_DIR}/kernel )
 
+# FreeRTOS Kernel depends on hooks provided by FreeRTOS::Platform
+target_link_libraries( freertos_kernel FreeRTOS::Platform )
+
 add_subdirectory( Source ${CMAKE_CURRENT_BINARY_DIR}/freertos_plus )
 
 add_subdirectory( ThirdParty ${CMAKE_CURRENT_BINARY_DIR}/third_party )

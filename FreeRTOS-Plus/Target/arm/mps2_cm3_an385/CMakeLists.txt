@@ -4,7 +4,7 @@
 
 set( FREERTOS_PORT "GCC_ARM_CM3" CACHE STRING "" )
 set( FREERTOS_HEAP "4" CACHE STRING "" )
-set( FREERTOS_CONFIG_FILE_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}" CACHE STRING "" )
+set( FREERTOS_CONFIG_FILE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR} CACHE STRING "" )
 
 add_library( freertos_platform STATIC )
 
@@ -14,7 +14,9 @@ target_include_directories( freertos_platform
                             ../cmsis
                             bsp )
 
-target_compile_definitions( freertos_platform PUBLIC CMSDK_CM3 )
+target_compile_definitions( freertos_platform
+                            PUBLIC
+                            CMSDK_CM3 )
 
 target_sources( freertos_platform
                 PRIVATE
@@ -39,7 +41,10 @@ target_sources( freertos_platform
                 FreeRTOSConfig.h
                 ../cmsis/core_cm3.h )
 
-target_link_libraries( freertos_platform PRIVATE freertos_kernel FreeRTOS::Logging )
+target_link_libraries( freertos_platform
+                       PUBLIC
+                       freertos_kernel
+                       FreeRTOS::Logging )
 
 if( CONFIG_NET_IP_STACK_FREERTOS_PLUS_TCP )
     target_sources( freertos_platform

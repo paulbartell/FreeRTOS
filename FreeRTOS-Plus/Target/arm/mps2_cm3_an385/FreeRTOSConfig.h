@@ -62,6 +62,8 @@ extern void vAssertCalled( const char * const pcFileName, unsigned long ulLine )
 #define configMAX_PRIORITIES            ( 10 )
 #define configUSE_COUNTING_SEMAPHORES 1
 #define configSUPPORT_DYNAMIC_ALLOCATION 1
+#define configSUPPORT_STATIC_ALLOCATION     1
+
 
 #define configUSE_TIMERS                           1
 #define configTIMER_TASK_PRIORITY                  ( configMAX_PRIORITIES - 1 )
@@ -95,7 +97,6 @@ to exclude the API function. */
 #define INCLUDE_xTaskResumeFromISR          1
 #define INCLUDE_xTimerPendFunctionCall      1
 
-#define configSUPPORT_STATIC_ALLOCATION     1
 
 #define configUSE_SB_COMPLETED_CALLBACK     1
 

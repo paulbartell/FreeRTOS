@@ -74,10 +74,13 @@ void vPlatformInitLogging( void )
             #endif
 
             configASSERT( xStdoutMutex != NULL );
-
-            ( void ) xSemaphoreTake( xStdoutMutex, portMAX_DELAY );
         }
         taskEXIT_CRITICAL();
+    }
+
+    if( xStdoutMutex != NULL )
+    {
+        ( void ) xSemaphoreGive( xStdoutMutex );
     }
 }
 

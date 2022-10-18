@@ -24,18 +24,17 @@
  *
  */
 
+/* FreeRTOS kernel includes. */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
 /* Standard includes. */
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <fcntl.h>
-
-/* FreeRTOS kernel includes. */
-#include "FreeRTOS.h"
-#include "FreeRTOSConfig.h"
-#include "task.h"
-#include "semphr.h"
 
 #define __weak__    __attribute__( ( weak ) )
 
@@ -240,5 +239,3 @@
         *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
     }
 #endif /* configSUPPORT_STATIC_ALLOCATION == 1U  */
-
-/*-----------------------------------------------------------*/
