@@ -138,19 +138,6 @@ static TlsTransportStatus_t tlsSetup( NetworkContext_t * pNetworkContext,
 /*-----------------------------------------------------------*/
 
 /**
- * @brief Callback that wraps PKCS#11 for pseudo-random number generation.
- *
- * @param[in] pvCtx Caller context.
- * @param[in] pucRandom Byte array to fill with random data.
- * @param[in] xRandomLength Length of byte array.
- *
- * @return Zero on success.
- */
-static int32_t generateRandomBytes( void * pvCtx,
-                                    unsigned char * pucRandom,
-                                    size_t xRandomLength );
-
-/**
  * @brief Helper for reading the specified certificate object, if present,
  * out of storage, into RAM, and then into an mbedTLS certificate context
  * object.
@@ -167,50 +154,23 @@ static CK_RV readCertificateIntoContext( SSLContext_t * pSslContext,
                                          CK_OBJECT_CLASS xClass,
                                          mbedtls_x509_crt * pxCertificateContext );
 
+/*-----------------------------------------------------------*/
+
 /**
  * @brief Helper for setting up potentially hardware-based cryptographic context
  * for the client TLS certificate and private key.
  *
- * @param[in] Caller context.
- * @param[in] PKCS11 label which contains the desired private key.
+ * @param[in] pxP11FunctionList Pointer to a PKCS#11 Function list
+ * @param[in] xP11Session PKCS#11 session handle
+ * @param[in] pcLabel PKCS11 label of the desired private key
+ * @param[out] pPrivateKeyCtx Pointer to the mbedtls_pk_context to be populated
  *
  * @return Zero on success.
  */
-static CK_RV initializeClientKeys( SSLContext_t * pxCtx,
-                                   const char * pcLabelName );
-
-/**
- * @brief Stub function to satisfy mbedtls checks before sign operations
- *
- * @return 1.
- */
-int canDoStub( mbedtls_pk_type_t type );
-
-/**
- * @brief Sign a cryptographic hash with the private key.
- *
- * @param[in] pvContext Crypto context.
- * @param[in] xMdAlg Unused.
- * @param[in] pucHash Length in bytes of hash to be signed.
- * @param[in] uiHashLen Byte array of hash to be signed.
- * @param[out] pucSig RSA signature bytes.
- * @param[in] pxSigLen Length in bytes of signature buffer.
- * @param[in] piRng Unused.
- * @param[in] pvRng Unused.
- *
- * @return Zero on success.
- */
-static int32_t privateKeySigningCallback( void * pvContext,
-                                          mbedtls_md_type_t xMdAlg,
-                                          const unsigned char * pucHash,
-                                          size_t xHashLen,
-                                          unsigned char * pucSig,
-                                          size_t * pxSigLen,
-                                          int32_t ( * piRng )( void *,
-                                                               unsigned char *,
-                                                               size_t ),
-                                          void * pvRng );
-
+static CK_RV initializeClientKeys( CK_FUNCTION_LIST_PTR pxP11FunctionList,
+                                   CK_SESSION_HANDLE xP11Session,
+                                   const char * pcLabel,
+                                   mbedtls_pk_context * pPrivateKeyCtx )
 
 /*-----------------------------------------------------------*/
 
@@ -222,9 +182,6 @@ static void sslContextInit( SSLContext_t * pSslContext )
     mbedtls_x509_crt_init( &( pSslContext->rootCa ) );
     mbedtls_x509_crt_init( &( pSslContext->clientCert ) );
     mbedtls_ssl_init( &( pSslContext->context ) );
-
-    xInitializePkcs11Session( &( pSslContext->xP11Session ) );
-    C_GetFunctionList( &( pSslContext->pxP11FunctionList ) );
 }
 /*-----------------------------------------------------------*/
 
@@ -236,11 +193,7 @@ static void sslContextFree( SSLContext_t * pSslContext )
     mbedtls_x509_crt_free( &( pSslContext->rootCa ) );
     mbedtls_x509_crt_free( &( pSslContext->clientCert ) );
     mbedtls_ssl_config_free( &( pSslContext->config ) );
-
-
     ( void ) lPKCS11PkMbedtlsCloseSessionAndFree( &( pSslContext->privKey ) );
-
-    pSslContext->pxP11FunctionList->C_CloseSession( pSslContext->xP11Session );
 }
 
 /*-----------------------------------------------------------*/
@@ -251,6 +204,8 @@ static TlsTransportStatus_t tlsSetup( NetworkContext_t * pNetworkContext,
 {
     TlsTransportParams_t * pTlsTransportParams = NULL;
     TlsTransportStatus_t returnStatus = TLS_TRANSPORT_SUCCESS;
+    CK_FUNCTION_LIST_PTR pxP11FunctionList = NULL;
+    CK_SESSION_HANDLE xP11Session;
     int32_t mbedtlsError = 0;
     CK_RV xResult = CKR_OK;
 
@@ -299,9 +254,11 @@ static TlsTransportStatus_t tlsSetup( NetworkContext_t * pNetworkContext,
         /* Set SSL authmode and the RNG context. */
         mbedtls_ssl_conf_authmode( &( pTlsTransportParams->sslContext.config ),
                                    MBEDTLS_SSL_VERIFY_REQUIRED );
+
         mbedtls_ssl_conf_rng( &( pTlsTransportParams->sslContext.config ),
-                              generateRandomBytes,
+                              lPKCS11RandomCallback,
                               &pTlsTransportParams->sslContext );
+
         mbedtls_ssl_conf_cert_profile( &( pTlsTransportParams->sslContext.config ),
                                        &( pTlsTransportParams->sslContext.certProfile ) );
 
@@ -328,9 +285,23 @@ static TlsTransportStatus_t tlsSetup( NetworkContext_t * pNetworkContext,
 
     if( returnStatus == TLS_TRANSPORT_SUCCESS )
     {
+        C_GetFunctionList( &pxP11FunctionList );
+        xResult = xInitializePkcs11Session( &xP11Session );
+
+        if( xResult != CKR_OK )
+        {
+            LogError( ( "Failed to initialize a PKCS #11 session." ) );
+            returnStatus = TLS_TRANSPORT_INVALID_CREDENTIALS;
+        }
+    }
+
+    if( returnStatus == TLS_TRANSPORT_SUCCESS )
+    {
         /* Setup the client private key. */
-        xResult = initializeClientKeys( &( pTlsTransportParams->sslContext ),
-                                        pNetworkCredentials->pPrivateKeyLabel );
+        xResult = initializeClientKeys( pxP11FunctionList,
+                                        xP11Session,
+                                        pNetworkCredentials->pPrivateKeyLabel,
+                                        &( p ) );
 
         if( xResult != CKR_OK )
         {
@@ -483,28 +454,9 @@ static TlsTransportStatus_t tlsSetup( NetworkContext_t * pNetworkContext,
 
 /*-----------------------------------------------------------*/
 
-static int32_t generateRandomBytes( void * pvCtx,
-                                    unsigned char * pucRandom,
-                                    size_t xRandomLength )
-{
-    /* Must cast from void pointer to conform to mbed TLS API. */
-    SSLContext_t * pxCtx = ( SSLContext_t * ) pvCtx;
-    CK_RV xResult;
-
-    xResult = pxCtx->pxP11FunctionList->C_GenerateRandom( pxCtx->xP11Session, pucRandom, xRandomLength );
-
-    if( xResult != CKR_OK )
-    {
-        LogError( ( "Failed to generate random bytes from the PKCS #11 module." ) );
-    }
-
-    return xResult;
-}
-
-/*-----------------------------------------------------------*/
-
-static CK_RV readCertificateIntoContext( SSLContext_t * pSslContext,
-                                         const char * pcLabelName,
+static CK_RV readCertificateIntoContext( CK_FUNCTION_LIST_PTR pxP11FunctionList,
+                                         CK_SESSION_HANDLE xP11Session,
+                                         const char * pcLabel,
                                          CK_OBJECT_CLASS xClass,
                                          mbedtls_x509_crt * pxCertificateContext )
 {
@@ -513,9 +465,9 @@ static CK_RV readCertificateIntoContext( SSLContext_t * pSslContext,
     CK_OBJECT_HANDLE xCertObj = 0;
 
     /* Get the handle of the certificate. */
-    xResult = xFindObjectWithLabelAndClass( pSslContext->xP11Session,
-                                            pcLabelName,
-                                            strnlen( pcLabelName,
+    xResult = xFindObjectWithLabelAndClass( xP11Session
+                                            pcLabel,
+                                            strnlen( pcLabel,
                                                      pkcs11configMAX_LABEL_LENGTH ),
                                             xClass,
                                             &xCertObj );
@@ -531,10 +483,10 @@ static CK_RV readCertificateIntoContext( SSLContext_t * pSslContext,
         xTemplate.type = CKA_VALUE;
         xTemplate.ulValueLen = 0;
         xTemplate.pValue = NULL;
-        xResult = pSslContext->pxP11FunctionList->C_GetAttributeValue( pSslContext->xP11Session,
-                                                                       xCertObj,
-                                                                       &xTemplate,
-                                                                       1 );
+        xResult = pxP11FunctionList->C_GetAttributeValue( xP11Session
+                                                          xCertObj,
+                                                          &xTemplate,
+                                                          1 );
     }
 
     /* Create a buffer for the certificate. */
@@ -551,10 +503,10 @@ static CK_RV readCertificateIntoContext( SSLContext_t * pSslContext,
     /* Export the certificate. */
     if( CKR_OK == xResult )
     {
-        xResult = pSslContext->pxP11FunctionList->C_GetAttributeValue( pSslContext->xP11Session,
-                                                                       xCertObj,
-                                                                       &xTemplate,
-                                                                       1 );
+        xResult = pxP11FunctionList->C_GetAttributeValue( xP11Session
+                                                          xCertObj,
+                                                          &xTemplate,
+                                                          1 );
     }
 
     /* Decode the certificate. */
@@ -573,20 +525,14 @@ static CK_RV readCertificateIntoContext( SSLContext_t * pSslContext,
 
 /*-----------------------------------------------------------*/
 
-/**
- * @brief Helper for setting up potentially hardware-based cryptographic context
- * for the client TLS certificate and private key.
- *
- * @param[in] Caller context.
- * @param[in] PKCS11 label which contains the desired private key.
- *
- * @return Zero on success.
- */
-static CK_RV initializeClientKeys( SSLContext_t * pxCtx,
-                                   const char * pcLabelName )
+static CK_RV initializeClientKeys( CK_FUNCTION_LIST_PTR pxP11FunctionList,
+                                   CK_SESSION_HANDLE xP11Session,
+                                   const char * pcLabel,
+                                   mbedtls_pk_context * pPrivateKeyCtx )
 {
     CK_RV xResult = CKR_OK;
     CK_SLOT_ID * pxSlotIds = NULL;
+    CK_OBJECT_HANDLE xPrivateKeyHandle;
     CK_ULONG xCount = 0;
     CK_ATTRIBUTE xTemplate[ 2 ];
     mbedtls_pk_type_t xKeyAlgo = ( mbedtls_pk_type_t ) ~0;
@@ -594,9 +540,9 @@ static CK_RV initializeClientKeys( SSLContext_t * pxCtx,
     /* Get the PKCS #11 module/token slot count. */
     if( CKR_OK == xResult )
     {
-        xResult = ( BaseType_t ) pxCtx->pxP11FunctionList->C_GetSlotList( CK_TRUE,
-                                                                          NULL,
-                                                                          &xCount );
+        xResult = ( BaseType_t ) pxP11FunctionList->C_GetSlotList( CK_TRUE,
+                                                                   NULL,
+                                                                   &xCount );
     }
 
     /* Allocate memory to store the token slots. */
@@ -613,29 +559,29 @@ static CK_RV initializeClientKeys( SSLContext_t * pxCtx,
     /* Get all of the available private key slot identities. */
     if( CKR_OK == xResult )
     {
-        xResult = ( BaseType_t ) pxCtx->pxP11FunctionList->C_GetSlotList( CK_TRUE,
-                                                                          pxSlotIds,
-                                                                          &xCount );
+        xResult = ( BaseType_t ) pxP11FunctionList->C_GetSlotList( CK_TRUE,
+                                                                   pxSlotIds,
+                                                                   &xCount );
     }
 
     /* Put the module in authenticated mode. */
     if( CKR_OK == xResult )
     {
-        xResult = ( BaseType_t ) pxCtx->pxP11FunctionList->C_Login( pxCtx->xP11Session,
-                                                                    CKU_USER,
-                                                                    ( CK_UTF8CHAR_PTR ) configPKCS11_DEFAULT_USER_PIN,
-                                                                    sizeof( configPKCS11_DEFAULT_USER_PIN ) - 1 );
+        xResult = ( BaseType_t ) pxP11FunctionList->C_Login( xP11Session,
+                                                             CKU_USER,
+                                                             ( CK_UTF8CHAR_PTR ) configPKCS11_DEFAULT_USER_PIN,
+                                                             sizeof( configPKCS11_DEFAULT_USER_PIN ) - 1 );
     }
 
     if( CKR_OK == xResult )
     {
         /* Get the handle of the device private key. */
-        xResult = xFindObjectWithLabelAndClass( pxCtx->xP11Session,
-                                                pcLabelName,
-                                                strnlen( pcLabelName,
+        xResult = xFindObjectWithLabelAndClass( xP11Session,
+                                                pcLabel,
+                                                strnlen( pcLabel,
                                                          pkcs11configMAX_LABEL_LENGTH ),
                                                 CKO_PRIVATE_KEY,
-                                                &pxCtx->xP11PrivateKey );
+                                                xPrivateKeyHandle );
     }
 
     if( ( CKR_OK == xResult ) && ( pxCtx->xP11PrivateKey == CK_INVALID_HANDLE ) )
@@ -647,8 +593,8 @@ static CK_RV initializeClientKeys( SSLContext_t * pxCtx,
     if( xResult == CKR_OK )
     {
         xResult = xPKCS11_initMbedtlsPkContext( &( pxCtx->privKey ),
-                                                pxCtx->xP11Session,
-                                                pxCtx->xP11PrivateKey );
+                                                xP11Session,
+                                                xPrivateKeyHandle );
     }
 
     /* Free memory. */
