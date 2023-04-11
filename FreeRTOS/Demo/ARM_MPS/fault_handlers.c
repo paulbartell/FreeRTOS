@@ -165,21 +165,21 @@ void vEnableFaultHandlers( void )
         #endif /* __MPU_PRESENT */
 
         /* Enable Non-Secure BusFault, HardFault, and NMI */
-        SCB_AIRCR |= ( AIRCR_BFHFNMINS );
+        // SCB_AIRCR |= ( AIRCR_BFHFNMINS );
 
-        /* Set to no group priority bits, 8 subpriority bits */
-        SCB_AIRCR |= AIRCR_PRIGROUP_SUBPRIORITY_8;
+        // /* Set to no group priority bits, 8 subpriority bits */
+        // SCB_AIRCR |= AIRCR_PRIGROUP_SUBPRIORITY_8;
 
-        SCB_SHPR1 = ( ( 0x07 << SCB_SHPR1_PRI_7_SHIFT ) |
-                      ( 0x06 << SCB_SHPR1_PRI_6_SHIFT ) |
-                      ( 0x05 << SCB_SHPR1_PRI_5_SHIFT ) |
-                      ( 0x04 << SCB_SHPR1_PRI_4_SHIFT ) );
+        // SCB_SHPR1 = ( ( 0x07 << SCB_SHPR1_PRI_7_SHIFT ) |
+        //               ( 0x06 << SCB_SHPR1_PRI_6_SHIFT ) |
+        //               ( 0x05 << SCB_SHPR1_PRI_5_SHIFT ) |
+        //               ( 0x04 << SCB_SHPR1_PRI_4_SHIFT ) );
 
-        SCB_SHPR2 |= ( 0x0B << SCB_SHPR2_PRI_11_SHIFT );
+        // SCB_SHPR2 |= ( 0x0B << SCB_SHPR2_PRI_11_SHIFT );
 
-        SCB_SHPR3 |= ( ( 0x0F << SCB_SHPR3_PRI_15_SHIFT ) |
-                       ( 0x0E << SCB_SHPR3_PRI_14_SHIFT ) |
-                       ( 0x0C << SCB_SHPR3_PRI_12_SHIFT ) );
+        // SCB_SHPR3 |= ( ( 0x0F << SCB_SHPR3_PRI_15_SHIFT ) |
+        //                ( 0x0E << SCB_SHPR3_PRI_14_SHIFT ) |
+        //                ( 0x0C << SCB_SHPR3_PRI_12_SHIFT ) );
 
     #endif /* __ARM_ARCH_7M__ || __ARM_ARCH_8M_MAIN__ */
 }
@@ -462,40 +462,40 @@ void Default_Handler( void )
 __attribute__( ( naked, aligned( 8 ) ) )
 void HardFault_Handler( void )
 {
-    #if __ARM_ARCH_7M__ || __ARM_ARCH_8M_MAIN__
+    // #if __ARM_ARCH_7M__ || __ARM_ARCH_8M_MAIN__
+        // asm volatile
+        // (
+        //     /* Determine Stack pointer in use => r0 */
+        //     "tst lr, #4;"
+        //     "ite eq;"
+        //     "mrseq r0, msp;"
+        //     "mrsne r0, psp;"
+
+        //     /* Determine if HardFault was caused by a breakpoint */
+        //     "ldr r1, ="STRINGIFY( SCB_HFSR_ADDR )";"
+        //     "ldr r2, [ r1 ];"
+        //     "lsls r2, r2, 1;"
+
+        //     "bcs skip_fault;"
+
+        //     "HANDLE_FAULT vLogHardFault;"
+
+        // "skip_fault:;"
+        //     /* Clear fault status */
+        //     "str r2, [ r1 ];"
+
+        //     /* Fault is due to debug breakpoint. Increment return address and move on. */
+        //     "ldr r1, [ r0, #24 ];"
+        //     "adds r1, #2;"
+        //     "str r1, [ r0, #24 ];"
+        //     "bx lr;"
+        // );
+    // #else
         asm volatile
         (
-            /* Determine Stack pointer in use => r0 */
-            "tst lr, #4;"
-            "ite eq;"
-            "mrseq r0, msp;"
-            "mrsne r0, psp;"
-
-            /* Determine if HardFault was caused by a breakpoint */
-            "ldr r1, ="STRINGIFY( SCB_HFSR_ADDR )";"
-            "ldr r2, [ r1 ];"
-            "lsls r2, r2, 1;"
-
-            "bcs skip_fault;"
-
-            "HANDLE_FAULT vLogHardFault;"
-
-        "skip_fault:;"
-            /* Clear fault status */
-            "str r2, [ r1 ];"
-
-            /* Fault is due to debug breakpoint. Increment return address and move on. */
-            "ldr r1, [ r0, #24 ];"
-            "adds r1, #2;"
-            "str r1, [ r0, #24 ];"
-            "bx lr;"
-        );
-    #else
-        asm volatile
-        (
             "HANDLE_FAULT vLogHardFault;"
         );
-    #endif
+    // #endif
 }
 
 __attribute__( ( naked, aligned( 8 ) ) )
