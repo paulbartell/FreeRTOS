@@ -6,7 +6,7 @@ on:
 jobs:
   arm-gcc-build-selfhosted:
     name: FreeRTOS ARM GCC Build Check
-    runs-on: fargate-medium-ubuntu-gcc-armnoneeabi-latest
+    runs-on: fargate-medium-ubuntu-gcc-arm-none-eabi-latest
     steps:
       - name: Clone This Repo
         uses: actions/checkout@v2
