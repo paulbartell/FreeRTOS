@@ -9,23 +9,23 @@ jobs:
     runs-on: fargate-medium-ubuntu-gcc-arm-none-eabi-latest
     steps:
       - name: Clone This Repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
             path: ./workspace
             submodules: 'recursive'
             fetch-depth: 1
       - name: Qemu MPS2 build Cortex M3
         run: |
-          cd workspace/FreeRTOS/Demo/CORTEX_M3_MPS2_QEMU_GCC 
+          cd workspace/FreeRTOS/Demo/CORTEX_M3_MPS2_QEMU_GCC
           make FULL_DEMO=0
-          make clean 
+          make clean
           make FULL_DEMO=1
       - name: Qemu MPS2 MPU build Cortex M3
         run: |
-          cd workspace/FreeRTOS/Demo/CORTEX_MPU_M3_MPS2_QEMU_GCC 
+          cd workspace/FreeRTOS/Demo/CORTEX_MPU_M3_MPS2_QEMU_GCC
           make
       - name: Qemu MPS2 IAR GCC build Cortex M3
-        run: | 
-          cd workspace/FreeRTOS/Demo/CORTEX_MPS2_QEMU_IAR_GCC/build/gcc 
+        run: |
+          cd workspace/FreeRTOS/Demo/CORTEX_MPS2_QEMU_IAR_GCC/build/gcc
           sed -i '/configUSE_STATS_FORMATTING_FUNCTIONS/c\#define configUSE_STATS_FORMATTING_FUNCTIONS 0' ../../FreeRTOSConfig.h
           make
