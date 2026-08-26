@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -104,7 +104,7 @@
 /**
  * @brief Timeout for receiving CONNACK packet in milliseconds.
  */
-#define mqttexampleCONNACK_RECV_TIMEOUT_MS           ( 1000U )
+#define mqttexampleCONNACK_RECV_TIMEOUT_MS           ( 10000U )
 
 /**
  * @brief The number of topic filters to subscribe.
@@ -267,6 +267,7 @@ static MQTTPubAckInfo_t pOutgoingPublishRecords[ mqttexampleOUTGOING_PUBLISH_REC
  */
 static MQTTPubAckInfo_t pIncomingPublishRecords[ mqttexampleINCOMING_PUBLISH_RECORD_LEN ];
 
+static uint8_t ucAckPropsBuffer[ 500 ];
 
 /*-----------------------------------------------------------*/
 
@@ -363,6 +364,10 @@ static MQTTStatus_t prvProcessLoopWithTimeout( MQTTContext_t * pMqttContext,
 
 /*-----------------------------------------------------------*/
 
+extern UBaseType_t uxRand( void );
+
+/*-----------------------------------------------------------*/
+
 static int32_t prvGenerateRandomNumber()
 {
     return( uxRand() & INT32_MAX );
@@ -379,26 +384,28 @@ static TlsTransportStatus_t prvConnectToServerWithBackoffRetries( NetworkContext
     uint16_t usNextRetryBackOff = 0U;
 
     #if defined( democonfigCLIENT_USERNAME )
-        /*
-         * When democonfigCLIENT_USERNAME is defined, use the "mqtt" alpn to connect
-         * to AWS IoT Core with Custom Authentication on port 443.
-         *
-         * Custom Authentication uses the contents of the username and password
-         * fields of the MQTT CONNECT packet to authenticate the client.
-         *
-         * For more information, refer to the documentation at:
-         * https://docs.aws.amazon.com/iot/latest/developerguide/custom-authentication.html
-         */
-        static const char * ppcAlpnProtocols[] = { "mqtt", NULL };
-        #if democonfigMQTT_BROKER_PORT != 443U
-        #error "Connections to AWS IoT Core with custom authentication must connect to TCP port 443 with the \"mqtt\" alpn."
-        #endif /* democonfigMQTT_BROKER_PORT != 443U */
+
+    /*
+     * When democonfigCLIENT_USERNAME is defined, use the "mqtt" alpn to connect
+     * to AWS IoT Core with Custom Authentication on port 443.
+     *
+     * Custom Authentication uses the contents of the username and password
+     * fields of the MQTT CONNECT packet to authenticate the client.
+     *
+     * For more information, refer to the documentation at:
+     * https://docs.aws.amazon.com/iot/latest/developerguide/custom-authentication.html
+     */
+    static const char * ppcAlpnProtocols[] = { "mqtt", NULL };
+    #if democonfigMQTT_BROKER_PORT != 443U
+    #error "Connections to AWS IoT Core with custom authentication must connect to TCP port 443 with the \"mqtt\" alpn."
+    #endif /* democonfigMQTT_BROKER_PORT != 443U */
     #else /* if !defined( democonfigCLIENT_USERNAME ) */
-        /*
-         * Otherwise, use the "x-amzn-mqtt-ca" alpn to connect to AWS IoT Core using
-         * x509 Certificate Authentication.
-         */
-        static const char * ppcAlpnProtocols[] = { "x-amzn-mqtt-ca", NULL };
+
+    /*
+     * Otherwise, use the "x-amzn-mqtt-ca" alpn to connect to AWS IoT Core using
+     * x509 Certificate Authentication.
+     */
+    static const char * ppcAlpnProtocols[] = { "x-amzn-mqtt-ca", NULL };
     #endif /* !defined( democonfigCLIENT_USERNAME ) */
 
     /*
@@ -645,7 +652,8 @@ static BaseType_t xHandlePublishResend( MQTTContext_t * pxMqttContext )
                        outgoingPublishPackets[ ucIndex ].packetId ) );
             xMQTTStatus = MQTT_Publish( pxMqttContext,
                                         &outgoingPublishPackets[ ucIndex ].pubInfo,
-                                        outgoingPublishPackets[ ucIndex ].packetId );
+                                        outgoingPublishPackets[ ucIndex ].packetId,
+                                        NULL );
 
             if( xMQTTStatus != MQTTSuccess )
             {
@@ -722,7 +730,9 @@ BaseType_t xEstablishMqttSession( MQTTContext_t * pxMqttContext,
                                                 pOutgoingPublishRecords,
                                                 mqttexampleOUTGOING_PUBLISH_RECORD_LEN,
                                                 pIncomingPublishRecords,
-                                                mqttexampleINCOMING_PUBLISH_RECORD_LEN );
+                                                mqttexampleINCOMING_PUBLISH_RECORD_LEN,
+                                                ucAckPropsBuffer,
+                                                sizeof( ucAckPropsBuffer ) );
 
             if( xMQTTStatus != MQTTSuccess )
             {
@@ -780,7 +790,9 @@ BaseType_t xEstablishMqttSession( MQTTContext_t * pxMqttContext,
                                             &xConnectInfo,
                                             NULL,
                                             mqttexampleCONNACK_RECV_TIMEOUT_MS,
-                                            &sessionPresent );
+                                            &sessionPresent,
+                                            NULL,
+                                            NULL );
 
                 if( xMQTTStatus != MQTTSuccess )
                 {
@@ -795,7 +807,7 @@ BaseType_t xEstablishMqttSession( MQTTContext_t * pxMqttContext,
             }
         }
 
-        if( xReturnStatus == pdFAIL )
+        if( xReturnStatus != pdFAIL )
         {
             /* Keep a flag for indicating if MQTT session is established. This
              * flag will mark that an MQTT DISCONNECT has to be sent at the end
@@ -803,7 +815,7 @@ BaseType_t xEstablishMqttSession( MQTTContext_t * pxMqttContext,
             xMqttSessionEstablished = true;
         }
 
-        if( xReturnStatus == pdFAIL )
+        if( xReturnStatus != pdFAIL )
         {
             /* Check if session is present and if there are any outgoing publishes
              * that need to resend. This is only valid if the broker is
@@ -845,7 +857,7 @@ BaseType_t xDisconnectMqttSession( MQTTContext_t * pxMqttContext,
     if( xMqttSessionEstablished == true )
     {
         /* Send DISCONNECT. */
-        xMQTTStatus = MQTT_Disconnect( pxMqttContext );
+        xMQTTStatus = MQTT_Disconnect( pxMqttContext, NULL, NULL );
 
         if( xMQTTStatus != MQTTSuccess )
         {
@@ -890,7 +902,8 @@ BaseType_t xSubscribeToTopic( MQTTContext_t * pxMqttContext,
     xMQTTStatus = MQTT_Subscribe( pxMqttContext,
                                   pSubscriptionList,
                                   sizeof( pSubscriptionList ) / sizeof( MQTTSubscribeInfo_t ),
-                                  globalSubscribePacketIdentifier );
+                                  globalSubscribePacketIdentifier,
+                                  NULL );
 
     if( xMQTTStatus != MQTTSuccess )
     {
@@ -953,7 +966,8 @@ BaseType_t xUnsubscribeFromTopic( MQTTContext_t * pxMqttContext,
     xMQTTStatus = MQTT_Unsubscribe( pxMqttContext,
                                     pSubscriptionList,
                                     sizeof( pSubscriptionList ) / sizeof( MQTTSubscribeInfo_t ),
-                                    globalUnsubscribePacketIdentifier );
+                                    globalUnsubscribePacketIdentifier,
+                                    NULL );
 
     if( xMQTTStatus != MQTTSuccess )
     {
@@ -1023,7 +1037,8 @@ BaseType_t xPublishToTopic( MQTTContext_t * pxMqttContext,
         /* Send PUBLISH packet. */
         xMQTTStatus = MQTT_Publish( pxMqttContext,
                                     &outgoingPublishPackets[ ucPublishIndex ].pubInfo,
-                                    outgoingPublishPackets[ ucPublishIndex ].packetId );
+                                    outgoingPublishPackets[ ucPublishIndex ].packetId,
+                                    NULL );
 
         if( xMQTTStatus != MQTTSuccess )
         {

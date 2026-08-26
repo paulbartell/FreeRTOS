@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -107,7 +107,7 @@
 /**
  * @brief Timeout for receiving CONNACK packet in milliseconds.
  */
-#define mqttexampleCONNACK_RECV_TIMEOUT_MS                ( 1000U )
+#define mqttexampleCONNACK_RECV_TIMEOUT_MS                ( 10000U )
 
 /**
  * @brief The topic to subscribe and publish to in the example.
@@ -276,9 +276,12 @@ static void prvMQTTProcessIncomingPublish( MQTTPublishInfo_t * pxPublishInfo );
  * @param[in] pxPacketInfo Packet Info pointer for the incoming packet.
  * @param[in] pxDeserializedInfo Deserialized information from the incoming packet.
  */
-static void prvEventCallback( MQTTContext_t * pxMQTTContext,
+static bool prvEventCallback( MQTTContext_t * pxMQTTContext,
                               MQTTPacketInfo_t * pxPacketInfo,
-                              MQTTDeserializedInfo_t * pxDeserializedInfo );
+                              MQTTDeserializedInfo_t * pxDeserializedInfo,
+                              MQTTSuccessFailReasonCode_t * pxReasonCode,
+                              MQTTPropBuilder_t * pxSendPropsBuffer,
+                              MQTTPropBuilder_t * pxGetPropsBuffer );
 
 /**
  * @brief TLS connect to endpoint democonfigMQTT_BROKER_ENDPOINT.
@@ -301,6 +304,10 @@ static void prvTLSConnect( NetworkCredentials_t * pxNetworkCredentials,
  */
 static MQTTStatus_t prvProcessLoopWithTimeout( MQTTContext_t * pMqttContext,
                                                uint32_t ulTimeoutMs );
+
+/*-----------------------------------------------------------*/
+
+extern BaseType_t xPlatformIsNetworkUp( void );
 
 /*-----------------------------------------------------------*/
 
@@ -416,7 +423,18 @@ static void prvMQTTDemoTask( void * pvParameters )
     for( ; ; )
     {
         LogInfo( ( "---------STARTING DEMO---------\r\n" ) );
+
         /****************************** Connect. ******************************/
+        /* Wait for Networking */
+        if( xPlatformIsNetworkUp() == pdFALSE )
+        {
+            LogInfo( ( "Waiting for the network link up event..." ) );
+
+            while( xPlatformIsNetworkUp() == pdFALSE )
+            {
+                vTaskDelay( pdMS_TO_TICKS( 1000U ) );
+            }
+        }
 
         /* Establish a TLS connection with the MQTT broker. This example connects
          * to the MQTT broker as specified by democonfigMQTT_BROKER_ENDPOINT and
@@ -488,7 +506,7 @@ static void prvMQTTDemoTask( void * pvParameters )
          * After sending disconnect, client must close the network connection. */
         LogInfo( ( "Disconnecting the MQTT connection with %s.",
                    democonfigMQTT_BROKER_ENDPOINT ) );
-        xMQTTStatus = MQTT_Disconnect( &xMQTTContext );
+        xMQTTStatus = MQTT_Disconnect( &xMQTTContext, NULL, NULL );
         configASSERT( xMQTTStatus == MQTTSuccess );
 
         /* Close the network connection.  */
@@ -557,7 +575,9 @@ static void prvCreateMQTTConnectionWithBroker( MQTTContext_t * pxMQTTContext,
                                     pOutgoingPublishRecords,
                                     mqttexampleOUTGOING_PUBLISH_RECORD_LEN,
                                     pIncomingPublishRecords,
-                                    mqttexampleINCOMING_PUBLISH_RECORD_LEN );
+                                    mqttexampleINCOMING_PUBLISH_RECORD_LEN,
+                                    NULL,
+                                    0U );
     configASSERT( xResult == MQTTSuccess );
 
     /* Some fields are not used in this demo so start with everything at 0. */
@@ -585,7 +605,9 @@ static void prvCreateMQTTConnectionWithBroker( MQTTContext_t * pxMQTTContext,
                             &xConnectInfo,
                             NULL,
                             mqttexampleCONNACK_RECV_TIMEOUT_MS,
-                            &xSessionPresent );
+                            &xSessionPresent,
+                            NULL,
+                            NULL );
     configASSERT( xResult == MQTTSuccess );
 
     /* Successfully established and MQTT connection with the broker. */
@@ -619,7 +641,8 @@ static void prvMQTTSubscribeToTopic( MQTTContext_t * pxMQTTContext )
     xResult = MQTT_Subscribe( pxMQTTContext,
                               xMQTTSubscription,
                               sizeof( xMQTTSubscription ) / sizeof( MQTTSubscribeInfo_t ),
-                              usSubscribePacketIdentifier );
+                              usSubscribePacketIdentifier,
+                              NULL );
 
     configASSERT( xResult == MQTTSuccess );
 }
@@ -651,7 +674,7 @@ static void prvMQTTPublishToTopic( MQTTContext_t * pxMQTTContext )
     usPublishPacketIdentifier = MQTT_GetPacketId( pxMQTTContext );
 
     /* Send PUBLISH packet. Packet ID is not used for a QoS1 publish. */
-    xResult = MQTT_Publish( pxMQTTContext, &xMQTTPublishInfo, usPublishPacketIdentifier );
+    xResult = MQTT_Publish( pxMQTTContext, &xMQTTPublishInfo, usPublishPacketIdentifier, NULL );
 
     configASSERT( xResult == MQTTSuccess );
 }
@@ -678,7 +701,8 @@ static void prvMQTTUnsubscribeFromTopic( MQTTContext_t * pxMQTTContext )
     xResult = MQTT_Unsubscribe( pxMQTTContext,
                                 xMQTTSubscription,
                                 sizeof( xMQTTSubscription ) / sizeof( MQTTSubscribeInfo_t ),
-                                usUnsubscribePacketIdentifier );
+                                usUnsubscribePacketIdentifier,
+                                NULL );
 
     configASSERT( xResult == MQTTSuccess );
 }
@@ -752,12 +776,18 @@ static void prvMQTTProcessIncomingPublish( MQTTPublishInfo_t * pxPublishInfo )
 
 /*-----------------------------------------------------------*/
 
-static void prvEventCallback( MQTTContext_t * pxMQTTContext,
+static bool prvEventCallback( MQTTContext_t * pxMQTTContext,
                               MQTTPacketInfo_t * pxPacketInfo,
-                              MQTTDeserializedInfo_t * pxDeserializedInfo )
+                              MQTTDeserializedInfo_t * pxDeserializedInfo,
+                              MQTTSuccessFailReasonCode_t * pxReasonCode,
+                              MQTTPropBuilder_t * pxSendPropsBuffer,
+                              MQTTPropBuilder_t * pxGetPropsBuffer )
 {
     /* The MQTT context is not used for this demo. */
     ( void ) pxMQTTContext;
+    ( void ) pxReasonCode;
+    ( void ) pxSendPropsBuffer;
+    ( void ) pxGetPropsBuffer;
 
     if( ( pxPacketInfo->type & 0xF0U ) == MQTT_PACKET_TYPE_PUBLISH )
     {
@@ -767,6 +797,8 @@ static void prvEventCallback( MQTTContext_t * pxMQTTContext,
     {
         prvMQTTProcessResponse( pxPacketInfo, pxDeserializedInfo->packetIdentifier );
     }
+
+    return true;
 }
 
 /*-----------------------------------------------------------*/

@@ -13,6 +13,8 @@ on:
 
 jobs:
   auto-release:
+    permissions:
+      id-token: write
     name: Auto Release
     runs-on: ubuntu-20.04
     steps:
@@ -26,26 +28,38 @@ jobs:
 
       # Source the release tools from FreeRTOS/FreeRTOS
       - name: Checkout FreeRTOS Release Tools
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           path: tools
 
       # Simpler git auth if we use checkout action and forward the repo to release script
       - name: Checkout FreeRTOS
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           path: local_core
           fetch-depth: 0
 
       - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          COMMIT_ID: ${{ github.event.inputs.commit_id }}
+          VERSION_NUMBER: ${{ github.event.inputs.version_number }}
+          GITHUB_ORG: ${{ github.repository_owner }}
         run: |
           # Configure repo for push
-          git config --global user.name ${{ github.actor }}
-          git config --global user.email ${{ github.actor }}@users.noreply.github.com
+          git config --global user.name "$ACTOR"
+          git config --global user.email "$ACTOR"@users.noreply.github.com
 
           # Run the release script
           pip install -r ./tools/.github/scripts/release-requirements.txt
-          ./tools/.github/scripts/release.py FreeRTOS --core-repo-path=local_core --core-commit=${{ github.event.inputs.commit_id }} --new-core-version=${{ github.event.inputs.version_number }}
+          ./tools/.github/scripts/release.py "$GITHUB_ORG" --core-repo-path=local_core --core-commit="$COMMIT_ID" --new-core-version="$VERSION_NUMBER"
           exit $?
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Backup Release Asset
+        uses: FreeRTOS/CI-CD-Github-Actions/artifact-backup@main
+        with:
+          # This is dependent on the release script putting this zip file
+          # in this exact location.
+          artifact_path: ./FreeRTOSv${{ github.event.inputs.version_number }}.zip
+          release_tag: ${{ github.event.inputs.version_number }}

@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -158,17 +158,11 @@
 
         #if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
         {
-            xEchoServerAddress.sin_address.ulIP_IPv4 = FreeRTOS_inet_addr_quick( configECHO_SERVER_ADDR0,
-                                                                    configECHO_SERVER_ADDR1,
-                                                                    configECHO_SERVER_ADDR2,
-                                                                    configECHO_SERVER_ADDR3 );
+            xEchoServerAddress.sin_address.ulIP_IPv4 = FreeRTOS_inet_addr( configECHO_SERVER_ADDR );
         }
         #else
         {
-            xEchoServerAddress.sin_addr = FreeRTOS_inet_addr_quick( configECHO_SERVER_ADDR0,
-                                                                    configECHO_SERVER_ADDR1,
-                                                                    configECHO_SERVER_ADDR2,
-                                                                    configECHO_SERVER_ADDR3 );
+            xEchoServerAddress.sin_addr = FreeRTOS_inet_addr( configECHO_SERVER_ADDR );
         }
         #endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
 
@@ -189,8 +183,8 @@
             FreeRTOS_setsockopt( xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, ( void * ) &xWinProps, sizeof( xWinProps ) );
 
             /* Connect to the echo server. */
-            printf( "\nConnecting to echo server %d.%d.%d.%d:%d....\n",
-                    configECHO_SERVER_ADDR0, configECHO_SERVER_ADDR1, configECHO_SERVER_ADDR2, configECHO_SERVER_ADDR3, echoECHO_PORT );
+            printf( "\nConnecting to echo server %s:%d....\n",
+                    configECHO_SERVER_ADDR, echoECHO_PORT );
 
             ret = FreeRTOS_connect( xSocket, &xEchoServerAddress, sizeof( xEchoServerAddress ) );
 
@@ -399,22 +393,22 @@
         return xReturn;
     }
 
+    #if ( ipconfigUSE_DHCP_HOOK != 0 )
+
+        #if ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 )
+            eDHCPCallbackAnswer_t xApplicationDHCPHook( eDHCPCallbackPhase_t eDHCPPhase,
+                                                        uint32_t ulIPAddress )
+        #else /* ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 ) */
+            eDHCPCallbackAnswer_t xApplicationDHCPHook_Multi( eDHCPCallbackPhase_t eDHCPPhase,
+                                                              struct xNetworkEndPoint * pxEndPoint,
+                                                              IP_Address_t * pxIPAddress )
+        #endif /* ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 ) */
+        {
+            /* Provide a stub for this function. */
+            return eDHCPContinue;
+        }
+
+    #endif /* if ( ipconfigUSE_DHCP_HOOK != 0 ) */
+
 #endif /* ipconfigUSE_TCP */
-
-#if ( ( ipconfigUSE_TCP == 1 ) && ( ipconfigUSE_DHCP_HOOK != 0 ) )
-
-    #if ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 )
-        eDHCPCallbackAnswer_t xApplicationDHCPHook( eDHCPCallbackPhase_t eDHCPPhase,
-                                                    uint32_t ulIPAddress )
-    #else /* ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 ) */
-        eDHCPCallbackAnswer_t xApplicationDHCPHook_Multi( eDHCPCallbackPhase_t eDHCPPhase,
-                                                          struct xNetworkEndPoint * pxEndPoint,
-                                                          IP_Address_t * pxIPAddress )
-    #endif /* ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 ) */
-    {
-        /* Provide a stub for this function. */
-        return eDHCPContinue;
-    }
-
-#endif
 /*-----------------------------------------------------------*/

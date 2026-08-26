@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -44,6 +44,10 @@ extern void vAssertCalled( void );
 #define configASSERT( x )    if( ( x ) == 0 ) vAssertCalled()
 #define configQUEUE_REGISTRY_SIZE                        20
 
+#ifdef PICOLIBC_TLS
+#define configUSE_PICOLIBC_TLS                           1
+#endif
+
 #define configUSE_PREEMPTION                             1
 #define configUSE_TIME_SLICING                           0
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION          0
@@ -68,7 +72,6 @@ extern void vAssertCalled( void );
 #define configUSE_COUNTING_SEMAPHORES                    1
 #define configSUPPORT_DYNAMIC_ALLOCATION                 1
 #define configSUPPORT_STATIC_ALLOCATION                  1
-#define configNUM_TX_DESCRIPTORS                         15
 #define configSTREAM_BUFFER_TRIGGER_LEVEL_TEST_MARGIN    2
 #define configCHECK_FOR_STACK_OVERFLOW                   2
 #define configALLOW_UNPRIVILEGED_CRITICAL_SECTIONS       0
@@ -116,6 +119,9 @@ unsigned long ulGetRunTimeCounterValue( void ); /* Prototype of function that re
 /* Set configUSE_MPU_WRAPPERS_V1 to 0 to use new MPU wrapper.
  * See https://freertos.org/a00110.html#configUSE_MPU_WRAPPERS_V1 for details. */
 #define configUSE_MPU_WRAPPERS_V1                      ( 0 )
+/* Set configENABLE_ACCESS_CONTROL_LIST to 1 to use access control list.
+ * See https://freertos.org/a00110.html#configENABLE_ACCESS_CONTROL_LIST for details. */
+#define configENABLE_ACCESS_CONTROL_LIST               ( 1 )
 /* See https://freertos.org/a00110.html#configPROTECTED_KERNEL_OBJECT_POOL_SIZE for details. */
 #define configPROTECTED_KERNEL_OBJECT_POOL_SIZE        ( 150 )
 /* See https://freertos.org/a00110.html#configSYSTEM_CALL_STACK_SIZE for details. */
@@ -126,10 +132,5 @@ unsigned long ulGetRunTimeCounterValue( void ); /* Prototype of function that re
  |      9 connected. */
 extern void vLoggingPrintf( const char * pcFormatString,
                             ... );
-
-#ifdef HEAP3
-    #define xPortGetMinimumEverFreeHeapSize    ( x )
-    #define xPortGetFreeHeapSize               ( x )
-#endif
 
 #endif /* FREERTOS_CONFIG_H */

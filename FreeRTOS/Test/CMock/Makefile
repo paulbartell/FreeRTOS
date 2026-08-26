@@ -14,6 +14,7 @@ UNITS       +=  queue
 UNITS       +=  stream_buffer
 UNITS       +=  message_buffer
 UNITS       +=  event_groups
+UNITS       +=  smp
 
 .PHONY: makefile.in
 
@@ -137,5 +138,5 @@ $(COVINFO) : $(LCOV_LIST)
 $(LCOV_LIST) : zero_coverage
     make -C $(subst .info,,$(@F)) lcov
 
-lcovhtml : $(COVINFO) | directories
+lcovhtml : directories $(COVINFO)
     genhtml $(COVINFO) $(LCOV_OPTS) --output-directory $(COVERAGE_DIR) --quiet

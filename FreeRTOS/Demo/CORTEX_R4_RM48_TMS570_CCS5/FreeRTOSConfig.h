@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -23,14 +23,6 @@
  * https://github.com/FreeRTOS
  *
  */
-
-/* 
- * The following #error directive is to remind users that a batch file must be
- * executed prior to this project being built.  Once it has been executed 
- * remove the #error line below.
- */
-#error Ensure CreateProjectDirectoryStructure.bat has been executed before building.  See comment immediately above.
-
 
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H

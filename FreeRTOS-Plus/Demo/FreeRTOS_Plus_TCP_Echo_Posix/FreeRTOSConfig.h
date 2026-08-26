@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -130,30 +130,30 @@ extern void vAssertCalled( const char * const pcFileName,
 
 #if ( projCOVERAGE_TEST == 1 )
 
-    /* Insert NOPs in empty decision paths to ensure both true and false paths
-     * are being tested. */
+/* Insert NOPs in empty decision paths to ensure both true and false paths
+ * are being tested. */
     #define mtCOVERAGE_TEST_MARKER()    __asm volatile ( "NOP" )
 
-    /* Ensure the tick count overflows during the coverage test. */
+/* Ensure the tick count overflows during the coverage test. */
     #define configINITIAL_TICK_COUNT        0xffffd800UL
 
-    /* Allows tests of trying to allocate more than the heap has free. */
+/* Allows tests of trying to allocate more than the heap has free. */
     #define configUSE_MALLOC_FAILED_HOOK    0
 
-    /* To test builds that remove the static qualifier for debug builds. */
+/* To test builds that remove the static qualifier for debug builds. */
     #define portREMOVE_STATIC_QUALIFIER
 #else /* if ( projCOVERAGE_TEST == 1 ) */
 
-    /* It is a good idea to define configASSERT() while developing. configASSERT()
-     * uses the same semantics as the standard C assert() macro. Don't define
-     * configASSERT() when performing code coverage tests though, as it is not
-     * intended to asserts() to fail, some some code is intended not to run if no
-     * errors are present. */
+/* It is a good idea to define configASSERT() while developing. configASSERT()
+ * uses the same semantics as the standard C assert() macro. Don't define
+ * configASSERT() when performing code coverage tests though, as it is not
+ * intended to asserts() to fail, some some code is intended not to run if no
+ * errors are present. */
     #define configASSERT( x )    if( ( x ) == 0 ) vAssertCalled( __FILE__, __LINE__ )
 
     #define configUSE_MALLOC_FAILED_HOOK    0
 
-    /* Include the FreeRTOS+Trace FreeRTOS trace macro definitions. */
+/* Include the FreeRTOS+Trace FreeRTOS trace macro definitions. */
     #include "trcRecorder.h"
 #endif /* if ( projCOVERAGE_TEST == 1 ) */
 
@@ -168,22 +168,19 @@ extern void vAssertCalled( const char * const pcFileName,
  * http://www.freertos.org/FreeRTOS-Plus/FreeRTOS_Plus_TCP/TCP_Echo_Clients.html
  * http://www.freertos.org/FreeRTOS-Plus/FreeRTOS_Plus_TCP/UDP_Echo_Clients.html */
 
-#define configECHO_SERVER_ADDR0    127
-#define configECHO_SERVER_ADDR1    0
-#define configECHO_SERVER_ADDR2    0
-#define configECHO_SERVER_ADDR3    1
+#define configECHO_SERVER_ADDR    "172.31.69.236"
 
 /* Default MAC address configuration. The demo creates a virtual network
  * connection that uses this MAC address by accessing the raw Ethernet/WiFi data
  * to and from a real network connection on the host PC. See the
  * configNETWORK_INTERFACE_TO_USE definition above for information on how to
  * configure the real network connection to use. */
-#define configMAC_ADDR0            0x00
-#define configMAC_ADDR1            0x11
-#define configMAC_ADDR2            0x22
-#define configMAC_ADDR3            0x33
-#define configMAC_ADDR4            0x44
-#define configMAC_ADDR5            0x41
+#define configMAC_ADDR0           0x00
+#define configMAC_ADDR1           0x11
+#define configMAC_ADDR2           0x22
+#define configMAC_ADDR3           0x33
+#define configMAC_ADDR4           0x44
+#define configMAC_ADDR5           0x41
 
 /* Default IP address configuration. Used in ipconfigUSE_DNS is set to 0, or
  * ipconfigUSE_DNS is set to 1 but a DNS server cannot be contacted. */
@@ -205,19 +202,22 @@ extern void vAssertCalled( const char * const pcFileName,
  * 208.67.220.220. Used in ipconfigUSE_DNS is set to 0, or ipconfigUSE_DNS is set
  * to 1 but a DNS server cannot be contacted.*/
 
-#define configDNS_SERVER_ADDR0    10
-#define configDNS_SERVER_ADDR1    4
-#define configDNS_SERVER_ADDR2    4
-#define configDNS_SERVER_ADDR3    10
+#define configDNS_SERVER_ADDR0                 10
+#define configDNS_SERVER_ADDR1                 4
+#define configDNS_SERVER_ADDR2                 4
+#define configDNS_SERVER_ADDR3                 10
 
 /* Default netmask configuration. Used in ipconfigUSE_DNS is set to 0, or
  * ipconfigUSE_DNS is set to 1 but a DNS server cannot be contacted. */
-#define configNET_MASK0           255
-#define configNET_MASK1           255
-#define configNET_MASK2           240
-#define configNET_MASK3           0
+#define configNET_MASK0                        255
+#define configNET_MASK1                        255
+#define configNET_MASK2                        240
+#define configNET_MASK3                        0
 
 /* The UDP port to which print messages are sent. */
-#define configPRINT_PORT          ( 15000 )
+#define configPRINT_PORT                       ( 15000 )
+
+/* Use kernel provided static memory for timer and idle tasks. */
+#define configKERNEL_PROVIDED_STATIC_MEMORY    1
 
 #endif /* FREERTOS_CONFIG_H */

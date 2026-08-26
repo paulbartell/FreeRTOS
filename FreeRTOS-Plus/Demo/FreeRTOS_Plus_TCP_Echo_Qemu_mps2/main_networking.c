@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -35,7 +35,6 @@
 #include <time.h>
 #include <unistd.h>
 
-
 /* FreeRTOS includes. */
 #include <FreeRTOS.h>
 #include "task.h"
@@ -44,14 +43,16 @@
 #include "FreeRTOS_IP.h"
 #include "FreeRTOS_Sockets.h"
 #include "TCPEchoClient_SingleTasks.h"
+#include "CMSIS/CMSDK_CM3.h"
+#include "main_networking.h"
 
 /* Echo client task parameters  */
-#define mainECHO_CLIENT_TASK_STACK_SIZE    ( configMINIMAL_STACK_SIZE * 2 )                 /* Not used in the linux port. */
-#define mainECHO_CLIENT_TASK_PRIORITY      ( tskIDLE_PRIORITY + 1 )
+#define mainECHO_CLIENT_TASK_STACK_SIZE     ( configMINIMAL_STACK_SIZE * 2 )                /* Not used in the linux port. */
+#define mainECHO_CLIENT_TASK_PRIORITY       ( tskIDLE_PRIORITY + 1 )
 
 /* Define a name that will be used for LLMNR and NBNS searches. */
-#define mainHOST_NAME                      "RTOSDemo"
-#define mainDEVICE_NICK_NAME               "qemu_demo"
+#define mainHOST_NAME                       "RTOSDemo"
+#define mainDEVICE_NICK_NAME                "qemu_demo"
 
 /* Set the following constants to 1 or 0 to define which tasks to include and
  * exclude:
@@ -64,7 +65,7 @@
  * FreeRTOSConfig.h.
  *
  */
-#define mainCREATE_TCP_ECHO_TASKS_SINGLE              1
+#define mainCREATE_TCP_ECHO_TASKS_SINGLE    1
 
 /*-----------------------------------------------------------*/
 
@@ -126,12 +127,12 @@ static UBaseType_t ulNextRand;
 
 #if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
 
-    /* In case multiple interfaces are used, define them statically. */
+/* In case multiple interfaces are used, define them statically. */
 
-    /* There is only 1 physical interface. */
+/* There is only 1 physical interface. */
     static NetworkInterface_t xInterfaces[ 1 ];
 
-    /* It will have several end-points. */
+/* It will have several end-points. */
     static NetworkEndPoint_t xEndPoints[ 4 ];
 
 #endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
@@ -140,7 +141,11 @@ static UBaseType_t ulNextRand;
 
 void main_tcp_echo_client_tasks( void )
 {
-    const uint32_t ulLongTime_ms = pdMS_TO_TICKS( 1000UL );
+    BaseType_t xReturn;
+
+    #ifndef __PICOLIBC__
+        const uint32_t ulLongTime_ms = pdMS_TO_TICKS( 1000UL );
+    #endif
 
     /*
      * Instructions for using this project are provided on:
@@ -162,27 +167,31 @@ void main_tcp_echo_client_tasks( void )
     /* Initialise the network interface.*/
     FreeRTOS_debug_printf( ( "FreeRTOS_IPInit\r\n" ) );
 
-#if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
-    /* Initialise the interface descriptor for WinPCap. */
-    pxMPS2_FillInterfaceDescriptor( 0, &( xInterfaces[ 0 ] ) );
+    /* Set Ethernet interrupt priority to configMAC_INTERRUPT_PRIORITY. */
+    NVIC_SetPriority( ETHERNET_IRQn, configMAC_INTERRUPT_PRIORITY );
 
-    /* === End-point 0 === */
-    FreeRTOS_FillEndPoint( &( xInterfaces[ 0 ] ), &( xEndPoints[ 0 ] ), ucIPAddress, ucNetMask, ucGatewayAddress, ucDNSServerAddress, ucMACAddress );
+    #if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
+        /* Initialise the interface descriptor for WinPCap. */
+        extern NetworkInterface_t * pxMPS2_FillInterfaceDescriptor( BaseType_t xEMACIndex,
+                                                                    NetworkInterface_t * pxInterface );
+        pxMPS2_FillInterfaceDescriptor( 0, &( xInterfaces[ 0 ] ) );
+
+        /* === End-point 0 === */
+        FreeRTOS_FillEndPoint( &( xInterfaces[ 0 ] ), &( xEndPoints[ 0 ] ), ucIPAddress, ucNetMask, ucGatewayAddress, ucDNSServerAddress, ucMACAddress );
     #if ( ipconfigUSE_DHCP != 0 )
-    {
-        /* End-point 0 wants to use DHCPv4. */
-        xEndPoints[ 0 ].bits.bWantDHCP = pdTRUE;
-    }
-    #endif /* ( ipconfigUSE_DHCP != 0 ) */
+        {
+            /* End-point 0 wants to use DHCPv4. */
+            xEndPoints[ 0 ].bits.bWantDHCP = pdTRUE;
+        }
+        #endif /* ( ipconfigUSE_DHCP != 0 ) */
 
-    memcpy( ipLOCAL_MAC_ADDRESS, ucMACAddress, sizeof( ucMACAddress ) );
+        xReturn = FreeRTOS_IPInit_Multi();
+    #else /* if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
+        /* Using the old /single /IPv4 library, or using backward compatible mode of the new /multi library. */
+        xReturn = FreeRTOS_IPInit( ucIPAddress, ucNetMask, ucGatewayAddress, ucDNSServerAddress, ucMACAddress );
+    #endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
 
-    FreeRTOS_IPInit_Multi();
-#else
-    /* Using the old /single /IPv4 library, or using backward compatible mode of the new /multi library. */
-    FreeRTOS_IPInit( ucIPAddress, ucNetMask, ucGatewayAddress, ucDNSServerAddress, ucMACAddress );
-#endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
-
+    configASSERT( xReturn == pdTRUE );
 
     /* Start the RTOS scheduler. */
     FreeRTOS_debug_printf( ( "vTaskStartScheduler\n" ) );
@@ -197,7 +206,9 @@ void main_tcp_echo_client_tasks( void )
      * really applicable to the Linux simulator port). */
     for( ; ; )
     {
-        usleep( ulLongTime_ms * 1000 );
+        #ifndef __PICOLIBC__
+            usleep( ulLongTime_ms * 1000 );
+        #endif
     }
 }
 /*-----------------------------------------------------------*/
@@ -206,18 +217,24 @@ BaseType_t xTasksAlreadyCreated = pdFALSE;
 
 /* Called by FreeRTOS+TCP when the network connects or disconnects.  Disconnect
  * events are only received if implemented in the MAC driver. */
+/* *INDENT-OFF* */
 #if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
     void vApplicationIPNetworkEventHook_Multi( eIPCallbackEvent_t eNetworkEvent,
-                                                   struct xNetworkEndPoint * pxEndPoint )
+                                               struct xNetworkEndPoint * pxEndPoint )
 #else
     void vApplicationIPNetworkEventHook( eIPCallbackEvent_t eNetworkEvent )
 #endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
+/* *INDENT-ON* */
 {
-    uint32_t ulIPAddress;
-    uint32_t ulNetMask;
-    uint32_t ulGatewayAddress;
-    uint32_t ulDNSServerAddress;
+    uint32_t ulIPAddress = 0U;
+    uint32_t ulNetMask = 0U;
+    uint32_t ulGatewayAddress = 0U;
+    uint32_t ulDNSServerAddress = 0U;
     char cBuffer[ 16 ];
+
+    #if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
+        ( void ) pxEndPoint;
+    #endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
 
     /* If the network has just come up...*/
     if( eNetworkEvent == eNetworkUp )
@@ -247,8 +264,10 @@ BaseType_t xTasksAlreadyCreated = pdFALSE;
         #else
             FreeRTOS_GetAddressConfiguration( &ulIPAddress, &ulNetMask, &ulGatewayAddress, &ulDNSServerAddress );
         #endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
+        FreeRTOS_printf( ( "Network Configuration:\r\n\r\n" ) );
+
         FreeRTOS_inet_ntoa( ulIPAddress, cBuffer );
-        FreeRTOS_printf( ( "\r\n\r\nIP Address: %s\r\n", cBuffer ) );
+        FreeRTOS_printf( ( "IP Address: %s\r\n", cBuffer ) );
 
         FreeRTOS_inet_ntoa( ulNetMask, cBuffer );
         FreeRTOS_printf( ( "Subnet Mask: %s\r\n", cBuffer ) );
@@ -266,14 +285,15 @@ BaseType_t xTasksAlreadyCreated = pdFALSE;
 }
 /*-----------------------------------------------------------*/
 
-UBaseType_t uxRand( void )
+static UBaseType_t uxRand( void )
 {
     const uint32_t ulMultiplier = 0x015a4e35UL, ulIncrement = 1UL;
 
     /* Utility function to generate a pseudo random number. */
 
     ulNextRand = ( ulMultiplier * ulNextRand ) + ulIncrement;
-    return( ( int ) ( ulNextRand >> 16UL ) & 0x7fffUL );
+
+    return ( ulNextRand >> 16UL ) & 0x7fffUL;
 }
 /*-----------------------------------------------------------*/
 
@@ -308,7 +328,7 @@ static void prvMiscInitialisation( void )
 
 #if ( ipconfigUSE_LLMNR != 0 ) || ( ipconfigUSE_NBNS != 0 ) || ( ipconfigDHCP_REGISTER_HOSTNAME == 1 )
 
-    const char * pcApplicationHostnameHook( void )
+    static const char * pcApplicationHostnameHook( void )
     {
         /* Assign the name "FreeRTOS" to this network node.  This function will
          * be called during the DHCP: the machine will be registered with an IP
@@ -323,12 +343,16 @@ static void prvMiscInitialisation( void )
 
     #if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
         BaseType_t xApplicationDNSQueryHook_Multi( struct xNetworkEndPoint * pxEndPoint,
-                                                            const char * pcName )
+                                                   const char * pcName )
     #else
         BaseType_t xApplicationDNSQueryHook( const char * pcName )
     #endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
     {
         BaseType_t xReturn;
+
+        #if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
+            ( void ) pxEndPoint;
+        #endif /* defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 ) */
 
         /* Determine if a name lookup is for this node.  Two names are given
          * to this node: that returned by pcApplicationHostnameHook() and that set

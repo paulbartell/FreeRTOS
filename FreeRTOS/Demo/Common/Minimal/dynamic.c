@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -133,7 +133,7 @@ static volatile BaseType_t xSuspendedQueueSendError = pdFALSE;
 static volatile BaseType_t xSuspendedQueueReceiveError = pdFALSE;
 
 /* Queue used by the second test. */
-QueueHandle_t xSuspendedTestQueue;
+static QueueHandle_t xSuspendedTestQueue;
 
 /* The value the queue receive task expects to receive next.  This is file
  * scope so xAreDynamicPriorityTasksStillRunning() can ensure it is still

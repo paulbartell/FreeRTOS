@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -316,9 +316,12 @@ static BaseType_t xShadowDeleted = pdFALSE;
  * @param[in] pxPacketInfo Packet Info pointer for the incoming packet.
  * @param[in] pxDeserializedInfo Deserialized information from the incoming packet.
  */
-static void prvEventCallback( MQTTContext_t * pxMqttContext,
+static bool prvEventCallback( MQTTContext_t * pxMqttContext,
                               MQTTPacketInfo_t * pxPacketInfo,
-                              MQTTDeserializedInfo_t * pxDeserializedInfo );
+                              MQTTDeserializedInfo_t * pxDeserializedInfo,
+                              MQTTSuccessFailReasonCode_t * pxReasonCode,
+                              MQTTPropBuilder_t * pxSendPropsBuffer,
+                              MQTTPropBuilder_t * pxGetPropsBuffer );
 
 /**
  * @brief Process payload from /update/delta topic.
@@ -375,6 +378,10 @@ static BaseType_t prvWaitForDeleteResponse( MQTTContext_t * pxMQTTContext );
 
 /*-----------------------------------------------------------*/
 
+extern BaseType_t xPlatformIsNetworkUp( void );
+
+/*-----------------------------------------------------------*/
+
 static BaseType_t prvWaitForDeleteResponse( MQTTContext_t * pxMQTTContext )
 {
     uint8_t ucCount = 0U;
@@ -390,7 +397,7 @@ static BaseType_t prvWaitForDeleteResponse( MQTTContext_t * pxMQTTContext )
         /* Event callback will set #xDeleteResponseReceived when receiving an
          * incoming publish on either `/delete/accepted` or `/delete/rejected`
          * Shadow topics. */
-        xMQTTStatus = MQTT_ProcessLoop( pxMQTTContext, MQTT_PROCESS_LOOP_TIMEOUT_MS );
+        xMQTTStatus = MQTT_ProcessLoop( pxMQTTContext );
     }
 
     if( ( xMQTTStatus != MQTTSuccess ) || ( xDeleteResponseReceived != pdTRUE ) )
@@ -684,9 +691,12 @@ static void prvUpdateAcceptedHandler( MQTTPublishInfo_t * pxPublishInfo )
  * function to determine whether the incoming message is a device shadow message
  * or not. If it is, it handles the message depending on the message type.
  */
-static void prvEventCallback( MQTTContext_t * pxMqttContext,
+static bool prvEventCallback( MQTTContext_t * pxMqttContext,
                               MQTTPacketInfo_t * pxPacketInfo,
-                              MQTTDeserializedInfo_t * pxDeserializedInfo )
+                              MQTTDeserializedInfo_t * pxDeserializedInfo,
+                              MQTTSuccessFailReasonCode_t * pxReasonCode,
+                              MQTTPropBuilder_t * pxSendPropsBuffer,
+                              MQTTPropBuilder_t * pxGetPropsBuffer )
 {
     ShadowMessageType_t messageType = ShadowMessageTypeMaxNum;
     const char * pcThingName = NULL;
@@ -696,6 +706,9 @@ static void prvEventCallback( MQTTContext_t * pxMqttContext,
     uint16_t usPacketIdentifier;
 
     ( void ) pxMqttContext;
+    ( void ) pxReasonCode;
+    ( void ) pxSendPropsBuffer;
+    ( void ) pxGetPropsBuffer;
 
     configASSERT( pxDeserializedInfo != NULL );
     configASSERT( pxMqttContext != NULL );
@@ -765,6 +778,8 @@ static void prvEventCallback( MQTTContext_t * pxMqttContext,
     {
         vHandleOtherIncomingPacket( pxPacketInfo, usPacketIdentifier );
     }
+
+    return true;
 }
 /*-----------------------------------------------------------*/
 
@@ -787,7 +802,7 @@ static void prvEventCallback( MQTTContext_t * pxMqttContext,
  *
  * The helper functions this demo uses for MQTT operations have internal
  * loops to process incoming messages. Those are not the focus of this demo
- * and therefor, are placed in a separate file shadow_demo_helpers.c.
+ * and therefore, are placed in a separate file shadow_demo_helpers.c.
  */
 void prvShadowDemoTask( void * pvParameters )
 {

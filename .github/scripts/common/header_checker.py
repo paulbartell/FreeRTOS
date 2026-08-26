@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /*
 # * FreeRTOS V202212.00
-# * Copyright (C) 2021 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+# * Copyright (C) 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # *
 # * Permission is hereby granted, free of charge, to any person obtaining a copy of
 # * this software and associated documentation files (the "Software"), to deal in
@@ -213,6 +213,10 @@ class HeaderChecker:
             elif self.isThirdPartyFile(path) and self.validateSpdxLine(
                 header_check["spdx"]
             ):
+                print("PASS")
+                print("-" * 85)
+                return True
+            elif self.customCheck(path):
                 print("PASS")
                 print("-" * 85)
                 return True
@@ -435,3 +439,6 @@ class HeaderChecker:
             else:
                 error_count += 1
         return error_count == 0
+
+    def customCheck(self, path):
+        return False

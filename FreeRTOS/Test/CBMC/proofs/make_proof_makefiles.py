@@ -2,7 +2,7 @@
 #
 # Generation of Makefiles for CBMC proofs.
 #
-# Copyright (C) 2019 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+# Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -121,7 +121,7 @@ def prolog():
 
                 On Windows ->
 
-                H_INC = /Imy\cool\directory
+                H_INC = /Imy\\cool\\directory
                 H_DEF = /DHALF=/2
 
         When invoked, this script walks the directory tree looking for files

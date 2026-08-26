@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -214,11 +214,6 @@
 #define mqttexampleTRANSPORT_SEND_RECV_TIMEOUT_MS         ( 5000U )
 
 /**
- * @brief Transport timeout in milliseconds for transport send and receive.
- */
-#define mqttexampleTRANSPORT_SEND_RECV_TIMEOUT_MS         ( 200U )
-
-/**
  * @brief The length of the outgoing publish records array used by the coreMQTT
  * library to track QoS > 0 packet ACKS for outgoing publishes.
  * Number of publishes = ulMaxPublishCount * mqttexampleTOPIC_COUNT
@@ -386,9 +381,12 @@ static void prvMQTTProcessIncomingPublish( MQTTPublishInfo_t * pxPublishInfo );
  * @param[in] pxPacketInfo Packet Info pointer for the incoming packet.
  * @param[in] pxDeserializedInfo Deserialized information from the incoming packet.
  */
-static void prvEventCallback( MQTTContext_t * pxMQTTContext,
+static bool prvEventCallback( MQTTContext_t * pxMQTTContext,
                               MQTTPacketInfo_t * pxPacketInfo,
-                              MQTTDeserializedInfo_t * pxDeserializedInfo );
+                              MQTTDeserializedInfo_t * pxDeserializedInfo,
+                              MQTTSuccessFailReasonCode_t * pxReasonCode,
+                              MQTTPropBuilder_t * pxSendPropsBuffer,
+                              MQTTPropBuilder_t * pxGetPropsBuffer );
 
 /**
  * @brief Call #MQTT_ProcessLoop in a loop for the duration of a timeout or
@@ -401,6 +399,10 @@ static void prvEventCallback( MQTTContext_t * pxMQTTContext,
  */
 static MQTTStatus_t prvProcessLoopWithTimeout( MQTTContext_t * pMqttContext,
                                                uint32_t ulTimeoutMs );
+
+/*-----------------------------------------------------------*/
+
+extern UBaseType_t uxRand();
 
 /*-----------------------------------------------------------*/
 
@@ -600,7 +602,7 @@ static void prvMQTTDemoTask( void * pvParameters )
          * connection. */
         LogInfo( ( "Disconnecting the MQTT connection with %s.\r\n",
                    democonfigMQTT_BROKER_ENDPOINT ) );
-        xMQTTStatus = MQTT_Disconnect( &xMQTTContext );
+        xMQTTStatus = MQTT_Disconnect( &xMQTTContext, NULL, NULL );
         configASSERT( xMQTTStatus == MQTTSuccess );
 
         /* Close the network connection.  */
@@ -635,41 +637,43 @@ static TlsTransportStatus_t prvConnectToServerWithBackoffRetries( NetworkCredent
     uint16_t usNextRetryBackOff = 0U;
 
     #ifdef democonfigUSE_AWS_IOT_CORE_BROKER
-        #if defined( democonfigCLIENT_USERNAME )
-            /*
-             * When democonfigCLIENT_USERNAME is defined, use the "mqtt" alpn to connect
-             * to AWS IoT Core with Custom Authentication on port 443.
-             *
-             * Custom Authentication uses the contents of the username and password
-             * fields of the MQTT CONNECT packet to authenticate the client.
-             *
-             * For more information, refer to the documentation at:
-             * https://docs.aws.amazon.com/iot/latest/developerguide/custom-authentication.html
-             */
-            static const char * ppcAlpnProtocols[] = { "mqtt", NULL };
-            #if democonfigMQTT_BROKER_PORT != 443U
-            #error "Connections to AWS IoT Core with custom authentication must connect to TCP port 443 with the \"mqtt\" alpn."
-            #endif /* democonfigMQTT_BROKER_PORT != 443U */
-        #else /* if !defined( democonfigCLIENT_USERNAME ) */
-            /*
-             * Otherwise, use the "x-amzn-mqtt-ca" alpn to connect to AWS IoT Core using
-             * x509 Certificate Authentication.
-             */
-            static const char * ppcAlpnProtocols[] = { "x-amzn-mqtt-ca", NULL };
-        #endif /* !defined( democonfigCLIENT_USERNAME ) */
+    #if defined( democonfigCLIENT_USERNAME )
 
         /*
-         * An ALPN identifier is only required when connecting to AWS IoT core on port 443.
-         * https://docs.aws.amazon.com/iot/latest/developerguide/protocols.html
+         * When democonfigCLIENT_USERNAME is defined, use the "mqtt" alpn to connect
+         * to AWS IoT Core with Custom Authentication on port 443.
+         *
+         * Custom Authentication uses the contents of the username and password
+         * fields of the MQTT CONNECT packet to authenticate the client.
+         *
+         * For more information, refer to the documentation at:
+         * https://docs.aws.amazon.com/iot/latest/developerguide/custom-authentication.html
          */
-        #if democonfigMQTT_BROKER_PORT == 443U
-            pxNetworkCredentials->pAlpnProtos = ppcAlpnProtocols;
-        #elif democonfigMQTT_BROKER_PORT == 8883U
-            pxNetworkCredentials->pAlpnProtos = NULL;
-        #else /* democonfigMQTT_BROKER_PORT != 8883U */
-            pxNetworkCredentials->pAlpnProtos = NULL;
-        #error "MQTT connections to AWS IoT Core are only allowed on ports 443 and 8883."
+        static const char * ppcAlpnProtocols[] = { "mqtt", NULL };
+        #if democonfigMQTT_BROKER_PORT != 443U
+        #error "Connections to AWS IoT Core with custom authentication must connect to TCP port 443 with the \"mqtt\" alpn."
         #endif /* democonfigMQTT_BROKER_PORT != 443U */
+    #else /* if !defined( democonfigCLIENT_USERNAME ) */
+
+        /*
+         * Otherwise, use the "x-amzn-mqtt-ca" alpn to connect to AWS IoT Core using
+         * x509 Certificate Authentication.
+         */
+        static const char * ppcAlpnProtocols[] = { "x-amzn-mqtt-ca", NULL };
+    #endif /* !defined( democonfigCLIENT_USERNAME ) */
+
+    /*
+     * An ALPN identifier is only required when connecting to AWS IoT core on port 443.
+     * https://docs.aws.amazon.com/iot/latest/developerguide/protocols.html
+     */
+    #if democonfigMQTT_BROKER_PORT == 443U
+        pxNetworkCredentials->pAlpnProtos = ppcAlpnProtocols;
+    #elif democonfigMQTT_BROKER_PORT == 8883U
+        pxNetworkCredentials->pAlpnProtos = NULL;
+    #else /* democonfigMQTT_BROKER_PORT != 8883U */
+        pxNetworkCredentials->pAlpnProtos = NULL;
+    #error "MQTT connections to AWS IoT Core are only allowed on ports 443 and 8883."
+    #endif /* democonfigMQTT_BROKER_PORT != 443U */
     #else /* ifdef democonfigUSE_AWS_IOT_CORE_BROKER */
         pxNetworkCredentials->pAlpnProtos = NULL;
     #endif /* ifdef democonfigUSE_AWS_IOT_CORE_BROKER */
@@ -763,7 +767,9 @@ static void prvCreateMQTTConnectionWithBroker( MQTTContext_t * pxMQTTContext,
                                     pOutgoingPublishRecords,
                                     mqttexampleOUTGOING_PUBLISH_RECORD_LEN,
                                     pIncomingPublishRecords,
-                                    mqttexampleINCOMING_PUBLISH_RECORD_LEN );
+                                    mqttexampleINCOMING_PUBLISH_RECORD_LEN,
+                                    NULL,
+                                    0U );
     configASSERT( xResult == MQTTSuccess );
 
     /* Some fields are not used in this demo so start with everything at 0. */
@@ -819,7 +825,9 @@ static void prvCreateMQTTConnectionWithBroker( MQTTContext_t * pxMQTTContext,
                             &xConnectInfo,
                             NULL,
                             mqttexampleCONNACK_RECV_TIMEOUT_MS,
-                            &xSessionPresent );
+                            &xSessionPresent,
+                            NULL,
+                            NULL );
     configASSERT( xResult == MQTTSuccess );
 
     /* Successfully established and MQTT connection with the broker. */
@@ -888,7 +896,8 @@ static void prvMQTTSubscribeWithBackoffRetries( MQTTContext_t * pxMQTTContext )
         xResult = MQTT_Subscribe( pxMQTTContext,
                                   xMQTTSubscription,
                                   sizeof( xMQTTSubscription ) / sizeof( MQTTSubscribeInfo_t ),
-                                  usSubscribePacketIdentifier );
+                                  usSubscribePacketIdentifier,
+                                  NULL );
         configASSERT( xResult == MQTTSuccess );
 
         LogInfo( ( "SUBSCRIBE sent for topic %s to broker.\n\n", mqttexampleTOPIC ) );
@@ -970,7 +979,7 @@ static void prvMQTTPublishToTopic( MQTTContext_t * pxMQTTContext )
     usPublishPacketIdentifier = MQTT_GetPacketId( pxMQTTContext );
 
     /* Send PUBLISH packet. Packet ID is not used for a QoS1 publish. */
-    xResult = MQTT_Publish( pxMQTTContext, &xMQTTPublishInfo, usPublishPacketIdentifier );
+    xResult = MQTT_Publish( pxMQTTContext, &xMQTTPublishInfo, usPublishPacketIdentifier, NULL );
 
     configASSERT( xResult == MQTTSuccess );
 }
@@ -1000,7 +1009,8 @@ static void prvMQTTUnsubscribeFromTopic( MQTTContext_t * pxMQTTContext )
     xResult = MQTT_Unsubscribe( pxMQTTContext,
                                 xMQTTSubscription,
                                 sizeof( xMQTTSubscription ) / sizeof( MQTTSubscribeInfo_t ),
-                                usUnsubscribePacketIdentifier );
+                                usUnsubscribePacketIdentifier,
+                                NULL );
 
     configASSERT( xResult == MQTTSuccess );
 }
@@ -1092,12 +1102,18 @@ static void prvMQTTProcessIncomingPublish( MQTTPublishInfo_t * pxPublishInfo )
 
 /*-----------------------------------------------------------*/
 
-static void prvEventCallback( MQTTContext_t * pxMQTTContext,
+static bool prvEventCallback( MQTTContext_t * pxMQTTContext,
                               MQTTPacketInfo_t * pxPacketInfo,
-                              MQTTDeserializedInfo_t * pxDeserializedInfo )
+                              MQTTDeserializedInfo_t * pxDeserializedInfo,
+                              MQTTSuccessFailReasonCode_t * pxReasonCode,
+                              MQTTPropBuilder_t * pxSendPropsBuffer,
+                              MQTTPropBuilder_t * pxGetPropsBuffer )
 {
     /* The MQTT context is not used for this demo. */
     ( void ) pxMQTTContext;
+    ( void ) pxReasonCode;
+    ( void ) pxSendPropsBuffer;
+    ( void ) pxGetPropsBuffer;
 
     if( ( pxPacketInfo->type & 0xF0U ) == MQTT_PACKET_TYPE_PUBLISH )
     {
@@ -1107,6 +1123,8 @@ static void prvEventCallback( MQTTContext_t * pxMQTTContext,
     {
         prvMQTTProcessResponse( pxPacketInfo, pxDeserializedInfo->packetIdentifier );
     }
+
+    return true;
 }
 
 /*-----------------------------------------------------------*/

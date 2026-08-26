@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -288,6 +288,14 @@ void td_task_addFakeTaskWaitingToReceiveFromQueue( QueueHandle_t xQueue )
     fakeTaskListItem.pvOwner = NULL;
 
     vListInsert( pxTasksWaitingToReceive, &fakeTaskListItem );
+}
+
+void td_task_removeFakeTaskFromList( void )
+{
+    if( listLIST_ITEM_CONTAINER( &fakeTaskListItem ) != NULL )
+    {
+        uxListRemove( &fakeTaskListItem );
+    }
 }
 
 TickType_t td_task_getFakeTaskPriority( void )

@@ -1,4 +1,5 @@
 CC                     =    arm-none-eabi-gcc
+SIZE                   =    arm-none-eabi-size
 BIN                   :=    RTOSDemo.axf
 
 BUILD_DIR             :=    build
@@ -34,41 +35,37 @@ INCLUDE_DIRS          +=    -I$(FREERTOS_DIR)/Demo/CORTEX_MPU_M3_MPS2_QEMU_GCC/C
 INCLUDE_DIRS          +=    -I$(KERNEL_DIR)/include
 INCLUDE_DIRS          +=    -I$(KERNEL_DIR)/portable/GCC/ARM_CM3_MPU
 
-DEFINES               :=    -DQEMU_SOC_MPS2
-DEFINES               :=    -DHEAP4
+CPPFLAGS              +=    -DHEAP4
 
-CPPFLAGS              +=    $(DEFINES)
-
-CFLAGS                +=    -mcpu=cortex-m3
-CFLAGS                +=    -Wno-error=implicit-function-declaration
-CFLAGS                +=    -Wno-builtin-declaration-mismatch
-CFLAGS                +=    -Werror
-CFLAGS                +=    -Wall
-CFLAGS                +=    -Wextra
-CFLAGS                +=    -fstrict-aliasing
-CFLAGS                +=    -Wstrict-aliasing
-CFLAGS                +=    -Wno-error=address-of-packed-member
-CFLAGS                +=    -Wno-unused-parameter
+ifeq ($(PICOLIBC), 1)
+    CFLAGS            +=     --specs=picolibc.specs -DPICOLIBC_INTEGER_PRINTF_SCANF
+endif
+CFLAGS                +=    -mthumb -mcpu=cortex-m3
+ifeq ($(DEBUG), 1)
+    CFLAGS            +=     -g3 -Og -ffunction-sections -fdata-sections -save-temps=obj
+else
+    CFLAGS            +=     -Os -ffunction-sections -fdata-sections
+endif
+#CFLAGS                +=    -flto
+CFLAGS                +=    -Wall -Wextra -Wshadow -Wno-unused-parameter
 CFLAGS                +=    $(INCLUDE_DIRS)
 
 LDFLAGS                =    -T ./scripts/mps2_m3.ld
-LDFLAGS               +=    -mthumb
-
 LDFLAGS               +=    -Xlinker -Map=${BUILD_DIR}/output.map
-LDFLAGS               +=    -nostartfiles -nostdlib -nolibc -nodefaultlibs
+LDFLAGS               +=    -Xlinker --gc-sections
+#LDFLAGS               +=    -Xlinker --print-gc-sections
+#LDFLAGS               +=    -nostartfiles -nostdlib -nolibc -nodefaultlibs
+LDFLAGS               +=    -nostdlib
 
-ifeq ($(DEBUG), 1)
-    CFLAGS                +=     -ggdb3 -Og -save-temps=obj
-else
-    CFLAGS                +=     -O3
-endif
+
 
 OBJ_FILES             :=    $(SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
 
 .PHONY: clean
 
 $(BUILD_DIR)/$(BIN) : $(OBJ_FILES)
-	$(CC) -ffunction-sections -fdata-sections $(LDFLAGS) $+ -o $(@)
+	$(CC) $(CFLAGS) $(LDFLAGS) $+ -o $(@)
+	$(SIZE) $(@)
 
 %.d: %.c
 	@set -e; rm -f $@; \

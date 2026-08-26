@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -219,6 +219,10 @@ static uint32_t ulReportId = 0UL;
 
 /*-----------------------------------------------------------*/
 
+extern BaseType_t xPlatformIsNetworkUp( void );
+
+/*-----------------------------------------------------------*/
+
 /**
  * @brief Callback to receive the incoming publish messages from the MQTT broker.
  *
@@ -226,9 +230,12 @@ static uint32_t ulReportId = 0UL;
  * @param[in] pxPacketInfo Pointer to publish info of the incoming publish.
  * @param[in] pxDeserializedInfo Deserialized information from the incoming publish.
  */
-static void prvPublishCallback( MQTTContext_t * pxMqttContext,
+static bool prvPublishCallback( MQTTContext_t * pxMqttContext,
                                 MQTTPacketInfo_t * pxPacketInfo,
-                                MQTTDeserializedInfo_t * pxDeserializedInfo );
+                                MQTTDeserializedInfo_t * pxDeserializedInfo,
+                                MQTTSuccessFailReasonCode_t * pxReasonCode,
+                                MQTTPropBuilder_t * pxSendPropsBuffer,
+                                MQTTPropBuilder_t * pxGetPropsBuffer );
 
 /**
  * @brief Collect all the metrics to be sent in the Device Defender report.
@@ -363,9 +370,12 @@ static bool prvValidateDefenderResponse( const char * pcDefenderResponse,
 }
 /*-----------------------------------------------------------*/
 
-static void prvPublishCallback( MQTTContext_t * pxMqttContext,
+static bool prvPublishCallback( MQTTContext_t * pxMqttContext,
                                 MQTTPacketInfo_t * pxPacketInfo,
-                                MQTTDeserializedInfo_t * pxDeserializedInfo )
+                                MQTTDeserializedInfo_t * pxDeserializedInfo,
+                                MQTTSuccessFailReasonCode_t * pxReasonCode,
+                                MQTTPropBuilder_t * pxSendPropsBuffer,
+                                MQTTPropBuilder_t * pxGetPropsBuffer )
 {
     DefenderStatus_t xStatus;
     DefenderTopic_t xApi;
@@ -379,6 +389,9 @@ static void prvPublishCallback( MQTTContext_t * pxMqttContext,
     /* Suppress the unused parameter warning when asserts are disabled in
      * build. */
     ( void ) pxMqttContext;
+    ( void ) pxReasonCode;
+    ( void ) pxSendPropsBuffer;
+    ( void ) pxGetPropsBuffer;
 
     /* Handle an incoming publish. The lower 4 bits of the publish packet
      * type is used for the dup, QoS, and retain flags. Hence masking
@@ -447,6 +460,8 @@ static void prvPublishCallback( MQTTContext_t * pxMqttContext,
     {
         vHandleOtherIncomingPacket( pxPacketInfo, pxDeserializedInfo->packetIdentifier );
     }
+
+    return true;
 }
 /*-----------------------------------------------------------*/
 

@@ -5,27 +5,27 @@ on: [pull_request]
 jobs:
   core-checker:
     name: Check File Headers
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       # Install python 3
       - name: Tool Setup
         uses: actions/setup-python@v2
         with:
-          python-version: 3.7.10
+          python-version: 3.8
           architecture:   x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Use the checks as defined by the user, so they can locally adjust as needed
       - name: Checkout FreeRTOS Tools
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref:  ${{ github.event.pull_request.head.sha }}
           path: tools
 
       # Checkout user pull request changes
       - name: Checkout Pull Request
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref:  ${{ github.event.pull_request.head.sha }}
           path: inspect

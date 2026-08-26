@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -45,29 +45,54 @@ typedef struct UART_t
 #define UART_CTRL_TX_EN      ( 1 << 0 )
 #define UART_CTRL_RX_EN      ( 1 << 1 )
 
-
-extern unsigned long _heap_bottom;
-extern unsigned long _heap_top;
-extern unsigned long g_ulBase;
-
-static void * heap_end = 0;
-
 /**
  * @brief initializes the UART emulated hardware
  */
-void uart_init()
+void uart_init(void)
 {
     UART0_ADDR->BAUDDIV = 16;
     UART0_ADDR->CTRL = UART_CTRL_TX_EN;
 }
+
+#ifdef __PICOLIBC__
+
+#include <stdio.h>
+
+/**
+ * @brief  Write byte to the UART channel to be displayed on the command line
+ *         with qemu
+ * @param [in] c     byte to send
+ * @param [in] file  ignored
+ * @returns the character written (cast to unsigned so it is not an error value)
+ */
+
+int
+_uart_putc(char c, FILE *file)
+{
+    ( void ) file;
+    UART_DR( UART0_ADDR ) = c;
+    return (unsigned char) c;
+}
+
+static FILE __stdio = FDEV_SETUP_STREAM(_uart_putc, NULL, NULL, _FDEV_SETUP_WRITE);
+
+__attribute__( ( used ) ) FILE *const stdout = &__stdio;
+
+#else
+
+extern unsigned long _heap_bottom;
+extern unsigned long _heap_top;
+
+static char * heap_end = ( char * ) &_heap_bottom;
 
 /**
  * @brief not used anywhere in the code
  * @todo  implement if necessary
  *
  */
-int _fstat( __attribute__( ( unused ) ) int file )
+__attribute__( ( used ) ) int _fstat( int file )
 {
+    ( void ) file;
     return 0;
 }
 
@@ -76,10 +101,13 @@ int _fstat( __attribute__( ( unused ) ) int file )
  * @todo  implement if necessary
  *
  */
-int _read( __attribute__( ( unused ) ) int file,
-           __attribute__( ( unused ) ) char * buf,
-           __attribute__( ( unused ) ) int len )
+__attribute__( ( used ) ) int _read( int file,
+           char * buf,
+           int len )
 {
+    ( void ) file;
+    ( void ) buf;
+    ( void ) len;
     return -1;
 }
 
@@ -91,11 +119,13 @@ int _read( __attribute__( ( unused ) ) int file,
  * @param [in] len   length of the buffer
  * @returns the number of bytes written
  */
-int _write( __attribute__( ( unused ) ) int file,
-            __attribute__( ( unused ) ) char * buf,
+__attribute__( ( used ) ) int _write( int file,
+            char * buf,
             int len )
 {
     int todo;
+
+    ( void ) file;
 
     for( todo = 0; todo < len; todo++ )
     {
@@ -111,18 +141,11 @@ int _write( __attribute__( ( unused ) ) int file,
  * @returns the previous top of the heap
  * @note uses a global variable <b>heap_end</b> to keep track of the previous top
  */
-void * _sbrk( int incr )
+__attribute__( ( used ) ) void * _sbrk( int incr )
 {
-    char * prev_heap_end;
+    void * prev_heap_end = heap_end;
 
-    if( heap_end == 0 )
-    {
-        heap_end = ( void * ) &_heap_bottom;
-    }
-
-    prev_heap_end = heap_end;
-
-    if( ( heap_end + incr ) > ( void * ) &_heap_top )
+    if( ( heap_end + incr ) > ( char * ) &_heap_top )
     {
         return ( void * ) -1;
     }
@@ -131,12 +154,13 @@ void * _sbrk( int incr )
 
     return prev_heap_end;
 }
-void _close( int fd )
+
+__attribute__( ( used ) ) void _close( int fd )
 {
     ( void ) fd;
 }
 
-int _lseek( int filedes,
+__attribute__( ( used ) ) int _lseek( int filedes,
             int offset,
             int whence )
 {
@@ -147,7 +171,7 @@ int _lseek( int filedes,
     return 0;
 }
 
-int _isatty()
+__attribute__( ( used ) ) int _isatty( void )
 {
     return 0;
 }
@@ -176,10 +200,12 @@ void _kill( pid_t pid,
     ( void ) sig;
 }
 
-int _getpid()
+int _getpid( void )
 {
     return 1;
 }
+
+#endif
 
 #ifdef __cplusplus
 }

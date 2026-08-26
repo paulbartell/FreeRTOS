@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -51,8 +51,13 @@
 #define configUSE_TICK_HOOK				1
 #define configCPU_CLOCK_HZ				( ( unsigned long ) 25000000 )
 #define configTICK_RATE_HZ				( ( TickType_t ) 1000 )
+#if __riscv_xlen == 64
+#define configMINIMAL_STACK_SIZE		( ( unsigned short ) 240 )
+#define configTOTAL_HEAP_SIZE			( ( size_t ) ( 220 * 1024 ) )
+#else
 #define configMINIMAL_STACK_SIZE		( ( unsigned short ) 120 )
 #define configTOTAL_HEAP_SIZE			( ( size_t ) ( 80 * 1024 ) )
+#endif
 #define configMAX_TASK_NAME_LEN			( 12 )
 #define configUSE_TRACE_FACILITY		1
 #define configUSE_16_BIT_TICKS			0

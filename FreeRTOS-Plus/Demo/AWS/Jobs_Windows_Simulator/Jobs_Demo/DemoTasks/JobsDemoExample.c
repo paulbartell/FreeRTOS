@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -346,9 +346,12 @@ static JobActionType prvGetAction( const char * pcAction,
  * @param[in] pxPacketInfo Packet Info pointer for the incoming packet.
  * @param[in] pxDeserializedInfo Deserialized information from the incoming packet.
  */
-static void prvEventCallback( MQTTContext_t * pxMqttContext,
+static bool prvEventCallback( MQTTContext_t * pxMqttContext,
                               MQTTPacketInfo_t * pxPacketInfo,
-                              MQTTDeserializedInfo_t * pxDeserializedInfo );
+                              MQTTDeserializedInfo_t * pxDeserializedInfo,
+                              MQTTSuccessFailReasonCode_t * pxReasonCode,
+                              MQTTPropBuilder_t * pxSendPropsBuffer,
+                              MQTTPropBuilder_t * pxGetPropsBuffer );
 
 /**
  * @brief Process payload from NextJobExecutionChanged and DescribeJobExecution
@@ -388,7 +391,7 @@ static void prvSendUpdateForJob( char * pcJobId,
 static void prvProcessJobDocument( char * pcJobId,
                                    uint16_t usJobIdLength,
                                    char * pcJobDocument,
-                                   uint16_t jobDocumentLength );
+                                   size_t uxJobDocumentLength );
 
 /**
  * @brief The task used to demonstrate the Jobs library API.
@@ -398,6 +401,9 @@ static void prvProcessJobDocument( char * pcJobId,
  */
 void prvJobsDemoTask( void * pvParameters );
 
+/*-----------------------------------------------------------*/
+
+extern BaseType_t xPlatformIsNetworkUp( void );
 
 /*-----------------------------------------------------------*/
 
@@ -473,7 +479,7 @@ static void prvSendUpdateForJob( char * pcJobId,
 static void prvProcessJobDocument( char * pcJobId,
                                    uint16_t usJobIdLength,
                                    char * pcJobDocument,
-                                   uint16_t jobDocumentLength )
+                                   size_t uxJobDocumentLength )
 {
     char * pcAction = NULL;
     size_t uActionLength = 0U;
@@ -482,10 +488,10 @@ static void prvProcessJobDocument( char * pcJobId,
     configASSERT( pcJobId != NULL );
     configASSERT( usJobIdLength > 0 );
     configASSERT( pcJobDocument != NULL );
-    configASSERT( jobDocumentLength > 0 );
+    configASSERT( uxJobDocumentLength > 0 );
 
     xJsonStatus = JSON_Search( pcJobDocument,
-                               jobDocumentLength,
+                               uxJobDocumentLength,
                                jobsexampleQUERY_KEY_FOR_ACTION,
                                jobsexampleQUERY_KEY_FOR_ACTION_LENGTH,
                                &pcAction,
@@ -516,7 +522,7 @@ static void prvProcessJobDocument( char * pcJobId,
                 LogInfo( ( "Received job contains \"print\" action." ) );
 
                 xJsonStatus = JSON_Search( pcJobDocument,
-                                           jobDocumentLength,
+                                           uxJobDocumentLength,
                                            jobsexampleQUERY_KEY_FOR_MESSAGE,
                                            jobsexampleQUERY_KEY_FOR_MESSAGE_LENGTH,
                                            &pcMessage,
@@ -548,7 +554,7 @@ static void prvProcessJobDocument( char * pcJobId,
                 size_t ulTopicLength = 0U;
 
                 xJsonStatus = JSON_Search( pcJobDocument,
-                                           jobDocumentLength,
+                                           uxJobDocumentLength,
                                            jobsexampleQUERY_KEY_FOR_TOPIC,
                                            jobsexampleQUERY_KEY_FOR_TOPIC_LENGTH,
                                            &pcTopic,
@@ -563,7 +569,7 @@ static void prvProcessJobDocument( char * pcJobId,
                 else
                 {
                     xJsonStatus = JSON_Search( pcJobDocument,
-                                               jobDocumentLength,
+                                               uxJobDocumentLength,
                                                jobsexampleQUERY_KEY_FOR_MESSAGE,
                                                jobsexampleQUERY_KEY_FOR_MESSAGE_LENGTH,
                                                &pcMessage,
@@ -685,13 +691,19 @@ static void prvNextJobHandler( MQTTPublishInfo_t * pxPublishInfo )
  * function to determine whether the incoming message is a Jobs message
  * or not. If it is, it handles the message depending on the message type.
  */
-static void prvEventCallback( MQTTContext_t * pxMqttContext,
+static bool prvEventCallback( MQTTContext_t * pxMqttContext,
                               MQTTPacketInfo_t * pxPacketInfo,
-                              MQTTDeserializedInfo_t * pxDeserializedInfo )
+                              MQTTDeserializedInfo_t * pxDeserializedInfo,
+                              MQTTSuccessFailReasonCode_t * pxReasonCode,
+                              MQTTPropBuilder_t * pxSendPropsBuffer,
+                              MQTTPropBuilder_t * pxGetPropsBuffer )
 {
     uint16_t usPacketIdentifier;
 
     ( void ) pxMqttContext;
+    ( void ) pxReasonCode;
+    ( void ) pxSendPropsBuffer;
+    ( void ) pxGetPropsBuffer;
 
     configASSERT( pxDeserializedInfo != NULL );
     configASSERT( pxMqttContext != NULL );
@@ -819,6 +831,8 @@ static void prvEventCallback( MQTTContext_t * pxMqttContext,
     {
         vHandleOtherIncomingPacket( pxPacketInfo, usPacketIdentifier );
     }
+
+    return true;
 }
 
 /*-----------------------------------------------------------*/
@@ -968,8 +982,8 @@ void prvJobsDemoTask( void * pvParameters )
             {
                 /* Handler function to process Jobs message payload. */
                 prvNextJobHandler( pxJobMessagePublishInfo );
-                vPortFree( pxJobMessagePublishInfo->pTopicName );
-                vPortFree( pxJobMessagePublishInfo->pPayload );
+                vPortFree( ( void * ) ( pxJobMessagePublishInfo->pTopicName ) );
+                vPortFree( ( void * ) ( pxJobMessagePublishInfo->pPayload ) );
                 vPortFree( pxJobMessagePublishInfo );
             }
 

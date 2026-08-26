@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -51,6 +51,7 @@
 /* FreeRTOS+TCP includes. */
 #include "FreeRTOS_IP.h"
 #include "FreeRTOS_Sockets.h"
+#include "TCPEchoClient_SingleTasks.h"
 
 /* Exclude the whole file if FreeRTOSIPConfig.h is configured to use UDP only. */
 #if ( ipconfigUSE_TCP == 1 )
@@ -110,9 +111,6 @@
     {
         BaseType_t x;
 
-        /* Set Ethernet interrupt priority to configMAC_INTERRUPT_PRIORITY. */
-        NVIC_SetPriority( ETHERNET_IRQn , configMAC_INTERRUPT_PRIORITY );
-
         /* Create the echo client tasks. */
         for( x = 0; x < echoNUM_ECHO_CLIENTS; x++ )
         {
@@ -163,9 +161,9 @@
         #if defined( ipconfigIPv4_BACKWARD_COMPATIBLE ) && ( ipconfigIPv4_BACKWARD_COMPATIBLE == 0 )
         {
             xEchoServerAddress.sin_address.ulIP_IPv4 = FreeRTOS_inet_addr_quick( configECHO_SERVER_ADDR0,
-                                                                    configECHO_SERVER_ADDR1,
-                                                                    configECHO_SERVER_ADDR2,
-                                                                    configECHO_SERVER_ADDR3 );
+                                                                                 configECHO_SERVER_ADDR1,
+                                                                                 configECHO_SERVER_ADDR2,
+                                                                                 configECHO_SERVER_ADDR3 );
         }
         #else
         {
@@ -209,18 +207,18 @@
                     lStringLength = prvCreateTxData( pcTransmittedString, echoBUFFER_SIZES );
 
                     /* Add in some unique text at the front of the string. */
-                    sprintf( pcTransmittedString, "TxRx message number %u", ulTxCount );
+                    sprintf( pcTransmittedString, "TxRx message number %lu", ulTxCount );
                     ulTxCount++;
 
-                    printf( "sending data to the echo server size %d original %d\n",
+                    printf( "sending data to the echo server size %ld original %d\n",
                             lStringLength,
                             echoBUFFER_SIZES );
                     /* Send the string to the socket. */
                     lTransmitted = FreeRTOS_send( xSocket,                        /* The socket being sent to. */
                                                   ( void * ) pcTransmittedString, /* The data being sent. */
-                                                  lStringLength,                  /* The length of the data being sent. */
+                                                  ( size_t ) lStringLength,       /* The length of the data being sent. */
                                                   0 );                            /* No flags. */
-                    printf( "FreeRTOS_send returned...transmitted %d\n",
+                    printf( "FreeRTOS_send returned...transmitted %ld\n",
                             lTransmitted );
 
                     if( lTransmitted < 0 )
@@ -239,10 +237,10 @@
                     /* Receive data echoed back to the socket. */
                     while( xReceivedBytes < lTransmitted )
                     {
-                        xReturned = FreeRTOS_recv( xSocket,                                 /* The socket being received from. */
-                                                   &( pcReceivedString[ xReceivedBytes ] ), /* The buffer into which the received data will be written. */
-                                                   lStringLength - xReceivedBytes,          /* The size of the buffer provided to receive the data. */
-                                                   0 );                                     /* No flags. */
+                        xReturned = FreeRTOS_recv( xSocket,                                       /* The socket being received from. */
+                                                   &( pcReceivedString[ xReceivedBytes ] ),       /* The buffer into which the received data will be written. */
+                                                   ( size_t ) ( lStringLength - xReceivedBytes ), /* The size of the buffer provided to receive the data. */
+                                                   0 );                                           /* No flags. */
 
                         if( xReturned < 0 )
                         {
@@ -269,9 +267,9 @@
                     if( xReceivedBytes > 0 )
                     {
                         /* Compare the transmitted string to the received string. */
-                        configASSERT( strncmp( pcReceivedString, pcTransmittedString, lTransmitted ) == 0 );
+                        configASSERT( strncmp( pcReceivedString, pcTransmittedString, ( size_t ) lTransmitted ) == 0 );
 
-                        if( strncmp( pcReceivedString, pcTransmittedString, lTransmitted ) == 0 )
+                        if( strncmp( pcReceivedString, pcTransmittedString, ( size_t ) lTransmitted ) == 0 )
                         {
                             /* The echo reply was received without error. */
                             ulTxRxCycles[ xInstance ]++;
@@ -345,7 +343,7 @@
         do
         {
             ( void ) xApplicationGetRandomNumber( &ulRandomNumber );
-            lCharactersToAdd = ulRandomNumber % ( ulBufferLength - 20UL );
+            lCharactersToAdd = ( BaseType_t ) ( ulRandomNumber % ( ulBufferLength - 20UL ) );
         } while( ( lCharactersToAdd == 0 ) || ( lCharactersToAdd < lMinimumLength ) ); /* Must be at least enough to add the unique text to the start of the string later. */
 
         /* Fill the buffer. */
@@ -394,5 +392,32 @@
 
         return xReturn;
     }
+
+
+    #if ( ipconfigUSE_DHCP_HOOK != 0 )
+
+        #if ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 )
+            eDHCPCallbackAnswer_t xApplicationDHCPHook( eDHCPCallbackPhase_t eDHCPPhase,
+                                                        uint32_t ulIPAddress )
+            {
+                ( void ) eDHCPPhase;
+                ( void ) ulIPAddress;
+
+                return eDHCPContinue;
+            }
+        #else /* ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 ) */
+            eDHCPCallbackAnswer_t xApplicationDHCPHook_Multi( eDHCPCallbackPhase_t eDHCPPhase,
+                                                              struct xNetworkEndPoint * pxEndPoint,
+                                                              IP_Address_t * pxIPAddress )
+            {
+                ( void ) eDHCPPhase;
+                ( void ) pxEndPoint;
+                ( void ) pxIPAddress;
+
+                return eDHCPContinue;
+            }
+        #endif /* ( ipconfigIPv4_BACKWARD_COMPATIBLE == 1 ) */
+
+    #endif /* if ( ipconfigUSE_DHCP_HOOK != 0 )*/
 
 #endif /* ipconfigUSE_TCP */

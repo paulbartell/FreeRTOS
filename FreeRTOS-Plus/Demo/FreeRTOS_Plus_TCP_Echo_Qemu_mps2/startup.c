@@ -1,6 +1,6 @@
 /*
  * FreeRTOS V202212.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -28,16 +28,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "CMSIS/CMSDK_CM3.h"
-#include "CMSIS/core_cm3.h"
 
 extern void vPortSVCHandler( void );
 extern void xPortPendSVHandler( void );
 extern void xPortSysTickHandler( void );
-extern void uart_init();
-extern int main();
+extern void uart_init( void );
+extern int main( void );
 
-void __attribute__( ( weak ) ) EthernetISR( void );
+void _start( void );
+void EthernetISR( void );
+void Reset_Handler( void );
 
 extern uint32_t _estack, _sidata, _sdata, _edata, _sbss, _ebss;
 
@@ -63,13 +63,12 @@ void Reset_Handler( void )
     }
 
     /* jump to board initialisation */
-    void _start( void );
     _start();
 }
 
-void prvGetRegistersFromStack( uint32_t * pulFaultStackAddress )
+__attribute__( ( used ) ) static void prvGetRegistersFromStack( uint32_t * pulFaultStackAddress )
 {
-/* These are volatile to try and prevent the compiler/linker optimising them
+/* These are volatile to try and prevent the compiler/linker optimizing them
  * away as the variables never actually get used.  If the debugger won't show the
  * values of the variables, make them global my moving their declaration outside
  * of this function. */
@@ -96,6 +95,16 @@ void prvGetRegistersFromStack( uint32_t * pulFaultStackAddress )
     for( ; ; )
     {
     }
+
+    /* Remove the warning about unused variables. */
+    ( void ) r0;
+    ( void ) r1;
+    ( void ) r2;
+    ( void ) r3;
+    ( void ) r12;
+    ( void ) lr;
+    ( void ) pc;
+    ( void ) psr;
 }
 
 static void Default_Handler( void ) __attribute__( ( naked ) );
@@ -103,18 +112,18 @@ void Default_Handler( void )
 {
     __asm volatile
     (
-        "Default_Handler: \n"
-        "    ldr r3, NVIC_INT_CTRL_CONST  \n"
+        "Default_Handler:\n"
+        "    ldr r3, =0xe000ed04\n"
         "    ldr r2, [r3, #0]\n"
         "    uxtb r2, r2\n"
         "Infinite_Loop:\n"
         "    b  Infinite_Loop\n"
         ".size  Default_Handler, .-Default_Handler\n"
-        ".align 4\n"
-        "NVIC_INT_CTRL_CONST: .word 0xe000ed04\n"
+        ".ltorg\n"
     );
 }
-static void HardFault_Handler( void ) __attribute__( ( naked ) );
+
+static void Default_Handler2( void ) __attribute__( ( naked ) );
 void Default_Handler2( void )
 {
     __asm volatile
@@ -124,41 +133,41 @@ void Default_Handler2( void )
         " mrseq r0, msp                                             \n"
         " mrsne r0, psp                                             \n"
         " ldr r1, [r0, #24]                                         \n"
-        " ldr r2, handler2_address_const                            \n"
+        " ldr r2, =prvGetRegistersFromStack                         \n"
         " bx r2                                                     \n"
-        " handler2_address_const: .word prvGetRegistersFromStack    \n"
+        " .ltorg                                                    \n"
     );
 }
 
-void Default_Handler3( void )
+static void Default_Handler3( void )
 {
     for( ; ; )
     {
     }
 }
 
-void Default_Handler4( void )
+static void Default_Handler4( void )
 {
     for( ; ; )
     {
     }
 }
 
-void Default_Handler5( void )
+static void Default_Handler5( void )
 {
     for( ; ; )
     {
     }
 }
 
-void Default_Handler6( void )
+static void Default_Handler6( void )
 {
     for( ; ; )
     {
     }
 }
 
-const uint32_t * isr_vector[] __attribute__( ( section( ".isr_vector" ) ) ) =
+const uint32_t * const isr_vector[] __attribute__( ( section( ".isr_vector" ), used ) ) =
 {
     ( uint32_t * ) &_estack,
     ( uint32_t * ) &Reset_Handler,       /* Reset                -15  */
@@ -195,7 +204,7 @@ const uint32_t * isr_vector[] __attribute__( ( section( ".isr_vector" ) ) ) =
 void _start( void )
 {
     uart_init();
-    main( 0, 0 );
+    main();
     exit( 0 );
 }
 
@@ -211,5 +220,8 @@ __attribute__( ( naked ) ) void exit( int status )
         "movs r0, #0x18\n"   /* SYS_EXIT */
         "bkpt 0xab\n"
         "end: b end\n"
+        ".ltorg"
         );
+
+    ( void ) status;
 }
